@@ -13,6 +13,7 @@ dist
 dist-ssr
 dist-extension
 artifacts
+api_webchat/assets
 coverage
 *.local
 

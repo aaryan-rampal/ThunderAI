@@ -5,9 +5,23 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "build": "node scripts/build-extension.mjs",
-    "verify": "node scripts/build-extension.mjs && node scripts/verify-extension.mjs",
+    "build:webchat": "vite build",
+    "dev:webchat": "vite",
+    "build": "vite build && node scripts/build-extension.mjs",
+    "verify": "vite build && node scripts/build-extension.mjs && node scripts/verify-extension.mjs",
     "package:xpi": "node scripts/build-extension.mjs && node scripts/verify-extension.mjs && node scripts/package-xpi.mjs",
     "deploy": "node scripts/build-extension.mjs && node scripts/verify-extension.mjs && node scripts/deploy-thunderbird.mjs"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.4",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "tailwindcss": "^4.2.4",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10"
   }
 }

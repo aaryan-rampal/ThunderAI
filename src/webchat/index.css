@@ -1,0 +1,136 @@
+@import "tailwindcss";
+
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --red: #d32f2f;
+  --green: #2e7d32;
+  --margin: 16px;
+  --padding: 16px;
+  --bg: #ffffff;
+  --fg: #1a1a1a;
+  --border: #e5e5e5;
+  --surface: #f7f7f7;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg);
+  color: var(--fg);
+  display: flex;
+  justify-content: center;
+  height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0 0 10px 0;
+  font-weight: 600;
+}
+
+p {
+  margin: 0 0 10px 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1e1e1e;
+    --fg: #e8e8e8;
+    --border: #3a3a3a;
+    --surface: #2a2a2a;
+  }
+
+  body {
+    background-color: var(--bg);
+    color: var(--fg);
+  }
+}
+
+/* Message content styles */
+.message-content p {
+  margin: 0 0 6px 0;
+  padding: 0;
+}
+
+.message-content p:last-child {
+  margin-bottom: 0;
+}
+
+.message-content ul,
+.message-content ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.message-content code {
+  font-family: "SF Mono", "Fira Code", monospace;
+  font-size: 0.88em;
+  background: rgba(0, 0, 0, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.message-content pre {
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 8px;
+  padding: 10px 12px;
+  overflow-x: auto;
+  margin: 6px 0;
+}
+
+.message-content pre code {
+  background: none;
+  padding: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .message-content code {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .message-content pre {
+    background: rgba(255, 255, 255, 0.06);
+  }
+}
+
+/* Token fade-in animation */
+@keyframes fadeIn {
+  to {
+    opacity: 1;
+  }
+}
+
+.token-span {
+  display: inline;
+  opacity: 0;
+  animation: fadeIn 600ms forwards;
+}
+
+/* Diff viewer */
+.diff-added {
+  background-color: #d4fcdc;
+  display: inline;
+  border-radius: 2px;
+}
+
+.diff-removed {
+  background-color: #fddddd;
+  display: inline;
+  text-decoration: line-through;
+  border-radius: 2px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .diff-added {
+    background-color: rgb(0, 94, 0);
+  }
+
+  .diff-removed {
+    background-color: rgb(90, 0, 0);
+  }
+}

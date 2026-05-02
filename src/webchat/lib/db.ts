@@ -15,8 +15,16 @@ const DB_VERSION = 1;
 
 type StoreNames = "sessions" | "messages" | "embeddings" | "rag_meta";
 
+let dbPromise: Promise<IDBDatabase> | null = null;
+
+export function resetDBCache(): void {
+  dbPromise = null;
+}
+
 function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  if (dbPromise) return dbPromise;
+
+  dbPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
 
     req.onupgradeneeded = (event) => {
@@ -43,9 +51,22 @@ function openDB(): Promise<IDBDatabase> {
       }
     };
 
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const db = req.result;
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      resolve(db);
+    };
+
+    req.onerror = () => {
+      dbPromise = null;
+      reject(req.error);
+    };
   });
+
+  return dbPromise;
 }
 
 function tx(

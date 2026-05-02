@@ -16,6 +16,7 @@ import { DiffViewer } from "./DiffViewer";
 interface MessagesAreaProps {
   messages: Message[];
   llmName: string;
+  isCopilot?: boolean;
 }
 
 interface DiffViewerEntry {
@@ -60,9 +61,10 @@ interface ActionButtonsProps {
   promptData: PromptData;
   fullTextHTML: string;
   onDiffView: (originalText: string, newText: string) => void;
+  isCopilot?: boolean;
 }
 
-function ActionButtons({ promptData, fullTextHTML, onDiffView }: ActionButtonsProps) {
+function ActionButtons({ promptData, fullTextHTML, onDiffView, isCopilot }: ActionButtonsProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [replyTypePref, setReplyTypePref] = useState<string>("reply_all");
   const [diffShown, setDiffShown] = useState(false);
@@ -115,8 +117,10 @@ function ActionButtons({ promptData, fullTextHTML, onDiffView }: ActionButtonsPr
         mailMessageId: data.mailMessageId,
         replyType,
       });
-      const win = await browser.windows.getCurrent();
-      browser.runtime.sendMessage({ command: "chatgpt_close", window_id: win.id }).catch(() => {});
+      if (!isCopilot) {
+        const win = await browser.windows.getCurrent();
+        browser.runtime.sendMessage({ command: "chatgpt_close", window_id: win.id }).catch(() => {});
+      }
     } else if (data.action === "2") {
       await browser.runtime.sendMessage({
         command: "chatgpt_replaceSelectedText",
@@ -124,12 +128,15 @@ function ActionButtons({ promptData, fullTextHTML, onDiffView }: ActionButtonsPr
         tabId: data.tabId,
         mailMessageId: data.mailMessageId,
       });
-      const win = await browser.windows.getCurrent();
-      browser.runtime.sendMessage({ command: "chatgpt_close", window_id: win.id }).catch(() => {});
+      if (!isCopilot) {
+        const win = await browser.windows.getCurrent();
+        browser.runtime.sendMessage({ command: "chatgpt_close", window_id: win.id }).catch(() => {});
+      }
     }
   };
 
   const handleClose = async () => {
+    if (isCopilot) return;
     const win = await browser.windows.getCurrent();
     browser.runtime.sendMessage({ command: "chatgpt_close", window_id: win.id }).catch(() => {});
   };
@@ -289,29 +296,31 @@ function ActionButtons({ promptData, fullTextHTML, onDiffView }: ActionButtonsPr
         </button>
       )}
 
-      <button
-        className="inline-flex items-center gap-[5px] px-3 py-[5px] text-[12.5px] font-[inherit] cursor-pointer transition-colors duration-75"
-        style={{
-          backgroundColor: "#ffffff",
-          color: "#666",
-          border: "1px solid #d0d0d0",
-          borderRadius: "20px",
-        }}
-        onClick={handleClose}
-        onMouseEnter={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#f0f0f0";
-        }}
-        onMouseLeave={(e) => {
-          (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#ffffff";
-        }}
-      >
-        {browser.i18n.getMessage("chatgpt_win_close")}
-      </button>
+      {!isCopilot && (
+        <button
+          className="inline-flex items-center gap-[5px] px-3 py-[5px] text-[12.5px] font-[inherit] cursor-pointer transition-colors duration-75"
+          style={{
+            backgroundColor: "#ffffff",
+            color: "#666",
+            border: "1px solid #d0d0d0",
+            borderRadius: "20px",
+          }}
+          onClick={handleClose}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#f0f0f0";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#ffffff";
+          }}
+        >
+          {browser.i18n.getMessage("chatgpt_win_close")}
+        </button>
+      )}
     </div>
   );
 }
 
-export function MessagesArea({ messages, llmName }: MessagesAreaProps) {
+export function MessagesArea({ messages, llmName, isCopilot }: MessagesAreaProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const [diffViewers, setDiffViewers] = useState<DiffViewerEntry[]>([]);
 
@@ -395,6 +404,7 @@ export function MessagesArea({ messages, llmName }: MessagesAreaProps) {
                   promptData={msg.promptData}
                   fullTextHTML={msg.content}
                   onDiffView={(orig, next) => handleDiffView(msg.id, orig, next)}
+                  isCopilot={isCopilot ?? false}
                 />
               )}
             </div>

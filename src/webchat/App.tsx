@@ -690,7 +690,7 @@ export function App() {
           onNewChat={handleNewChat}
         />
         <div className="copilot-chat-area">
-          <MessagesArea messages={messages} llmName={llmName} />
+          <MessagesArea messages={messages} llmName={llmName} isCopilot={true} />
           <MessageInput
             onSend={handleSend}
             onStop={handleStop}

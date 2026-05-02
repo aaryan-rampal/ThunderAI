@@ -38,3 +38,30 @@ export interface CustomTextItem {
   info: string;
   custom_text?: string;
 }
+
+export interface Session {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  model: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  sessionId: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: number;
+}
+
+export interface EmbeddingRecord {
+  messageId: string;
+  subject: string;
+  author: string;
+  date: string;
+  snippet: string;
+  vector: Float32Array;
+  model: string;
+  indexedAt: number;
+}

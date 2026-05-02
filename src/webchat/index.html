@@ -6,9 +6,22 @@
   <title>ThunderAI Chat</title>
   <script src="../js/lib/markdown-it.min.js"></script>
   <script src="../js/lib/diff.js"></script>
+  <script type="module">
+    import { prefs_default, integration_options_config } from '../options/mzta-options-default.js';
+    import { placeholdersUtils } from '../js/mzta-placeholders.js';
+    import { getAPIsInitMessageString, convertNewlinesToBr } from '../js/mzta-utils.js';
+    import { loadPrompt } from '../js/mzta-prompts.js';
+    window.prefs_default = prefs_default;
+    window.integration_options_config = integration_options_config;
+    window.placeholdersUtils = placeholdersUtils;
+    window.getAPIsInitMessageString = getAPIsInitMessageString;
+    window.convertNewlinesToBr = convertNewlinesToBr;
+    window.loadPrompt = loadPrompt;
+    // Boot React only after all extension globals are available on window
+    import('./main.tsx');
+  </script>
 </head>
 <body>
   <div id="root"></div>
-  <script type="module" src="./main.tsx"></script>
 </body>
 </html>

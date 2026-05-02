@@ -89,6 +89,72 @@ var modified_html = '';
 let _process_incoming = false;
 let _sparks_presence = false;
 
+// Persistent copilot tab — reused across prompts
+let _copilotTabId = null;
+let _copilotReady = false;
+let _copilotPendingPayload = null;
+
+browser.tabs.onRemoved.addListener((tabId) => {
+    if (tabId === _copilotTabId) {
+        _copilotTabId = null;
+        _copilotReady = false;
+        _copilotPendingPayload = null;
+    }
+});
+
+browser.runtime.onMessage.addListener((message) => {
+    if (message.command === 'copilot_ready') {
+        console.log('[ThunderAI copilot] copilot_ready received. pendingPayload:', _copilotPendingPayload !== null);
+        _copilotReady = true;
+        if (_copilotPendingPayload !== null) {
+            console.log('[ThunderAI copilot] Flushing pending payload to tab', _copilotTabId);
+            browser.tabs.sendMessage(_copilotTabId, _copilotPendingPayload);
+            _copilotPendingPayload = null;
+        }
+        return false;
+    }
+    return false;
+});
+
+async function ensureCopilotTab(llm, phDefVal, promptId, promptName) {
+    if (_copilotTabId !== null) {
+        try {
+            await browser.tabs.get(_copilotTabId);
+            await browser.tabs.update(_copilotTabId, { active: true });
+            console.log('[ThunderAI copilot] Reusing existing tab', _copilotTabId, 'ready:', _copilotReady);
+            return _copilotTabId;
+        } catch (_e) {
+            console.log('[ThunderAI copilot] Stale tab ID', _copilotTabId, '— creating new tab');
+            _copilotTabId = null;
+            _copilotReady = false;
+        }
+    }
+    _copilotReady = false;
+    const tab = await browser.tabs.create({
+        url: browser.runtime.getURL(
+            'api_webchat/index.html?llm=' + llm +
+            '&ph_def_val=' + phDefVal +
+            '&prompt_id=' + encodeURIComponent(promptId) +
+            '&prompt_name=' + encodeURIComponent(promptName) +
+            '&copilot=1'
+        ),
+    });
+    _copilotTabId = tab.id;
+    console.log('[ThunderAI copilot] Created new tab', _copilotTabId);
+    return _copilotTabId;
+}
+
+async function sendToCopilot(payload) {
+    console.log('[ThunderAI copilot] sendToCopilot — ready:', _copilotReady, 'tabId:', _copilotTabId, 'command:', payload.command);
+    if (_copilotReady) {
+        await browser.tabs.sendMessage(_copilotTabId, payload);
+        console.log('[ThunderAI copilot] Sent payload directly to tab');
+    } else {
+        _copilotPendingPayload = payload;
+        console.log('[ThunderAI copilot] Tab not ready — queued as pending payload');
+    }
+}
+
 let prefs_init = {};
 await reload_pref_init();
 
@@ -524,40 +590,21 @@ async function openChatGPT(promptText, action, curr_tabId, prompt_name = '', do_
         {
          // We are using the ChatGPT API
 
-            let rand_call_id2 = '_openai_' + generateCallID();
+            let mailMessageId2 = -1;
+            if(mailMessage) mailMessageId2 = mailMessage.id;
 
-            const listener2 = (message, sender, sendResponse) => {
-
-                function handleChatGptApi(createdTab) {
-                    let mailMessageId2 = -1;
-                    if(mailMessage) mailMessageId2 = mailMessage.id;
-
-                    // check if the config is present, or give a message error
-                    if (prefs.chatgpt_api_key == '') {
-                        browser.tabs.sendMessage(createdTab.id, { command: "api_error", error: browser.i18n.getMessage('chatgpt_empty_apikey')});
-                        return;
-                    }
-                    if (prefs.chatgpt_model == '') {
-                        browser.tabs.sendMessage(createdTab.id, { command: "api_error", error: browser.i18n.getMessage('chatgpt_empty_model')});
-                        return;
-                    }
-                    //console.log(">>>>>>>>>> sender: " + JSON.stringify(sender));
-                    browser.tabs.sendMessage(createdTab.id, { command: "api_send", prompt: promptText, action: action, tabId: curr_tabId, mailMessageId: mailMessageId2, do_custom_text: do_custom_text, prompt_info: prompt_info});
-                    taLog.log('[OpenAI ChatGPT] Connection succeded!');
-                    browser.runtime.onMessage.removeListener(listener2);
-                }
-
-                if (message.command === "chatgpt_api_ready_"+rand_call_id2) {
-                    return handleChatGptApi(sender.tab);
-                }
-                return false;
+            if (prefs.chatgpt_api_key == '') {
+                browser.tabs.sendMessage(curr_tabId, { command: "api_error", error: browser.i18n.getMessage('chatgpt_empty_apikey')});
+                return;
+            }
+            if (prefs.chatgpt_model == '') {
+                browser.tabs.sendMessage(curr_tabId, { command: "api_error", error: browser.i18n.getMessage('chatgpt_empty_model')});
+                return;
             }
 
-            browser.runtime.onMessage.addListener(listener2);
-
-            await browser.tabs.create({
-                url: browser.runtime.getURL('api_webchat/index.html?llm='+prefs.connection_type+'&call_id='+rand_call_id2+'&ph_def_val='+(prefs.placeholders_use_default_value?'1':'0')+'&prompt_id='+encodeURIComponent(prompt_info.id) + '&prompt_name=' + encodeURIComponent(i18nConditionalGet(prompt_info.name))),
-            });
+            await ensureCopilotTab(prefs.connection_type, prefs.placeholders_use_default_value?'1':'0', prompt_info.id, i18nConditionalGet(prompt_info.name));
+            await sendToCopilot({ command: "api_send", prompt: promptText, action: action, tabId: curr_tabId, mailMessageId: mailMessageId2, do_custom_text: do_custom_text, prompt_info: prompt_info});
+            taLog.log('[OpenAI ChatGPT] Connection succeded!');
         }
         break;  // chatgpt_api - END
 
@@ -565,40 +612,21 @@ async function openChatGPT(promptText, action, curr_tabId, prompt_name = '', do_
         {
             // We are using the Google Gemini API
 
-            let rand_call_id5 = '_google_gemini_' + generateCallID();
+            let mailMessageId5 = -1;
+            if(mailMessage) mailMessageId5 = mailMessage.id;
 
-            const listener5 = (message, sender, sendResponse) => {
-
-                function handleChatGptApi(createdTab) {
-                    let mailMessageId5 = -1;
-                    if(mailMessage) mailMessageId5 = mailMessage.id;
-
-                    // check if the config is present, or give a message error
-                    if (prefs.google_gemini_api_key == '') {
-                        browser.tabs.sendMessage(createdTab.id, { command: "api_error", error: browser.i18n.getMessage('google_gemini_empty_apikey')});
-                        return;
-                    }
-                    if (prefs.google_gemini_model == '') {
-                        browser.tabs.sendMessage(createdTab.id, { command: "api_error", error: browser.i18n.getMessage('google_gemini_empty_model')});
-                        return;
-                    }
-                    //console.log(">>>>>>>>>> sender: " + JSON.stringify(sender));
-                    browser.tabs.sendMessage(createdTab.id, { command: "api_send", prompt: promptText, action: action, tabId: curr_tabId, mailMessageId: mailMessageId5, do_custom_text: do_custom_text, prompt_info: prompt_info});
-                    taLog.log('[Google Gemini] Connection succeded!');
-                    browser.runtime.onMessage.removeListener(listener5);
-                }
-
-                if (message.command === "google_gemini_api_ready_"+rand_call_id5) {
-                    return handleChatGptApi(sender.tab);
-                }
-                return false;
+            if (prefs.google_gemini_api_key == '') {
+                browser.tabs.sendMessage(curr_tabId, { command: "api_error", error: browser.i18n.getMessage('google_gemini_empty_apikey')});
+                return;
+            }
+            if (prefs.google_gemini_model == '') {
+                browser.tabs.sendMessage(curr_tabId, { command: "api_error", error: browser.i18n.getMessage('google_gemini_empty_model')});
+                return;
             }
 
-            browser.runtime.onMessage.addListener(listener5);
-
-            await browser.tabs.create({
-                url: browser.runtime.getURL('api_webchat/index.html?llm='+prefs.connection_type+'&call_id='+rand_call_id5+'&ph_def_val='+(prefs.placeholders_use_default_value?'1':'0')+'&prompt_id='+encodeURIComponent(prompt_info.id) + '&prompt_name=' + encodeURIComponent(i18nConditionalGet(prompt_info.name))),
-            });
+            await ensureCopilotTab(prefs.connection_type, prefs.placeholders_use_default_value?'1':'0', prompt_info.id, i18nConditionalGet(prompt_info.name));
+            await sendToCopilot({ command: "api_send", prompt: promptText, action: action, tabId: curr_tabId, mailMessageId: mailMessageId5, do_custom_text: do_custom_text, prompt_info: prompt_info});
+            taLog.log('[Google Gemini] Connection succeded!');
         }
         break;  // google_gemini_api - END
 
@@ -606,90 +634,45 @@ async function openChatGPT(promptText, action, curr_tabId, prompt_name = '', do_
         {
              // We are using the Ollama API
 
-            taLog.log("Ollama API window opening...");
+            taLog.log("Ollama API copilot tab opening...");
 
-            let rand_call_id3 = '_ollama_' + generateCallID();
+            let mailMessageId3 = -1;
+            if(mailMessage) mailMessageId3 = mailMessage.id;
 
-            const listener3 = (message, sender, sendResponse) => {
-
-                function handleOllamaApi(createdTab3) {
-                    taLog.log("Ollama API window ready.");
-                    taLog.log("message.window_id: " + message.window_id)
-                    taLog.log("createdTab3.id: " + createdTab3.id)
-                    // let mailMessage3 = await browser.messageDisplay.getDisplayedMessage(curr_tabId);
-                    let mailMessageId3 = -1;
-                    if(mailMessage) mailMessageId3 = mailMessage.id;
-                    taLog.log("mailMessageId3: " + mailMessageId3)
-            
-                    // check if the config is present, or give a message error
-                    if (prefs.ollama_host == '') {
-                        browser.tabs.sendMessage(createdTab3.id, { command: "api_error", error: browser.i18n.getMessage('ollama_empty_host')});
-                        return;
-                    }
-                    if (prefs.ollama_model == '') {
-                        browser.tabs.sendMessage(createdTab3.id, { command: "api_error", error: browser.i18n.getMessage('ollama_empty_model')});
-                        return;
-                    }
-                    browser.tabs.sendMessage(createdTab3.id, { command: "api_send", prompt: promptText, action: action, tabId: curr_tabId, mailMessageId: mailMessageId3, do_custom_text: do_custom_text, prompt_info: prompt_info});
-                    taLog.log('[Ollama API] Connection succeded!');
-                    browser.runtime.onMessage.removeListener(listener3);
-                }
-
-                if (message.command === "ollama_api_ready_"+rand_call_id3) {
-                    return handleOllamaApi(sender.tab);
-                }else{
-                    return false;
-                }
+            if (prefs.ollama_host == '') {
+                browser.tabs.sendMessage(curr_tabId, { command: "api_error", error: browser.i18n.getMessage('ollama_empty_host')});
+                return;
+            }
+            if (prefs.ollama_model == '') {
+                browser.tabs.sendMessage(curr_tabId, { command: "api_error", error: browser.i18n.getMessage('ollama_empty_model')});
+                return;
             }
 
-            browser.runtime.onMessage.addListener(listener3);
-
-            await browser.tabs.create({
-                url: browser.runtime.getURL('api_webchat/index.html?llm='+prefs.connection_type+'&call_id='+rand_call_id3+'&ph_def_val='+(prefs.placeholders_use_default_value?'1':'0')+'&prompt_id='+encodeURIComponent(prompt_info.id) + '&prompt_name=' + encodeURIComponent(i18nConditionalGet(prompt_info.name))),
-            });
-
+            await ensureCopilotTab(prefs.connection_type, prefs.placeholders_use_default_value?'1':'0', prompt_info.id, i18nConditionalGet(prompt_info.name));
+            await sendToCopilot({ command: "api_send", prompt: promptText, action: action, tabId: curr_tabId, mailMessageId: mailMessageId3, do_custom_text: do_custom_text, prompt_info: prompt_info});
+            taLog.log('[Ollama API] Connection succeded!');
         }
         break;  // ollama_api - END
 
         case 'openai_comp_api':
         {
             // We are using the OpenAI Comp API
-    
-            let rand_call_id4 = '_openai_comp_api_' + generateCallID();
 
-    
-            const listener4 = (message, sender, sendResponse) => {
+            let mailMessageId4 = -1;
+            if(mailMessage) mailMessageId4 = mailMessage.id;
 
-                function handleOpenAICompApi(createdTab) {
-                    let mailMessageId4 = -1;
-                    if(mailMessage) mailMessageId4 = mailMessage.id;
-    
-                    // check if the config is present, or give a message error
-                    if (prefs.openai_comp_host == '') {
-                        browser.tabs.sendMessage(createdTab.id, { command: "api_error", error: browser.i18n.getMessage('OpenAIComp_empty_host')});
-                        return;
-                    }
-                    if (prefs.openai_comp_model == '') {
-                        browser.tabs.sendMessage(createdTab.id, { command: "api_error", error: browser.i18n.getMessage('OpenAIComp_empty_model')});
-                        return;
-                    }
-    
-                    browser.tabs.sendMessage(createdTab.id, { command: "api_send", prompt: promptText, action: action, tabId: curr_tabId, mailMessageId: mailMessageId4, do_custom_text: do_custom_text, prompt_info: prompt_info});
-                    taLog.log('[OpenAI Comp API] Connection succeded!');
-                    browser.runtime.onMessage.removeListener(listener4);
-                }
-
-                if (message.command === "openai_comp_api_ready_"+rand_call_id4) {
-                    return handleOpenAICompApi(sender.tab);
-                }
-                return false;
+            if (prefs.openai_comp_host == '') {
+                browser.tabs.sendMessage(curr_tabId, { command: "api_error", error: browser.i18n.getMessage('OpenAIComp_empty_host')});
+                return;
             }
-    
-            browser.runtime.onMessage.addListener(listener4);
+            if (prefs.openai_comp_model == '') {
+                browser.tabs.sendMessage(curr_tabId, { command: "api_error", error: browser.i18n.getMessage('OpenAIComp_empty_model')});
+                return;
+            }
 
-            await browser.tabs.create({
-                url: browser.runtime.getURL('api_webchat/index.html?llm='+prefs.connection_type+'&call_id='+rand_call_id4+'&ph_def_val='+(prefs.placeholders_use_default_value?'1':'0')+'&prompt_id='+encodeURIComponent(prompt_info.id) + '&prompt_name=' + encodeURIComponent(i18nConditionalGet(prompt_info.name))),
-            });
+            await ensureCopilotTab(prefs.connection_type, prefs.placeholders_use_default_value?'1':'0', prompt_info.id, i18nConditionalGet(prompt_info.name));
+            await sendToCopilot({ command: "api_send", prompt: promptText, action: action, tabId: curr_tabId, mailMessageId: mailMessageId4, do_custom_text: do_custom_text, prompt_info: prompt_info});
+            taLog.log('[OpenAI Comp API] Connection succeded!');
         }
         break;  // openai_comp_api - END
 
@@ -697,44 +680,25 @@ async function openChatGPT(promptText, action, curr_tabId, prompt_name = '', do_
         {
             // We are using the Anthropic API
 
-            let rand_call_id6 = '_anthropic_' + generateCallID();
+            let mailMessageId6 = -1;
+            if(mailMessage) mailMessageId6 = mailMessage.id;
 
-            const listener6 = (message, sender, sendResponse) => {
-
-                function handleAnthropicApi(createdTab) {
-                    let mailMessageId6 = -1;
-                    if(mailMessage) mailMessageId6 = mailMessage.id;
-
-                    // check if the config is present, or give a message error
-                    if (prefs.anthropic_api_key == '') {
-                        browser.tabs.sendMessage(createdTab.id, { command: "api_error", error: browser.i18n.getMessage('anthropic_empty_apikey')});
-                        return;
-                    }
-                    if (prefs.anthropic_model == '') {
-                        browser.tabs.sendMessage(createdTab.id, { command: "api_error", error: browser.i18n.getMessage('anthropic_empty_model')});
-                        return;
-                    }
-                    if (prefs.anthropic_version == '') {
-                        browser.tabs.sendMessage(createdTab.id, { command: "api_error", error: browser.i18n.getMessage('anthropic_empty_version')});
-                        return;
-                    }
-                    //console.log(">>>>>>>>>> sender: " + JSON.stringify(sender));
-                    browser.tabs.sendMessage(createdTab.id, { command: "api_send", prompt: promptText, action: action, tabId: curr_tabId, mailMessageId: mailMessageId6, do_custom_text: do_custom_text, prompt_info: prompt_info});
-                    taLog.log('[OpenAI ChatGPT] Connection succeded!');
-                    browser.runtime.onMessage.removeListener(listener6);
-                }
-
-                if (message.command === "anthropic_api_ready_"+rand_call_id6) {
-                    return handleAnthropicApi(sender.tab);
-                }
-                return false;
+            if (prefs.anthropic_api_key == '') {
+                browser.tabs.sendMessage(curr_tabId, { command: "api_error", error: browser.i18n.getMessage('anthropic_empty_apikey')});
+                return;
+            }
+            if (prefs.anthropic_model == '') {
+                browser.tabs.sendMessage(curr_tabId, { command: "api_error", error: browser.i18n.getMessage('anthropic_empty_model')});
+                return;
+            }
+            if (prefs.anthropic_version == '') {
+                browser.tabs.sendMessage(curr_tabId, { command: "api_error", error: browser.i18n.getMessage('anthropic_empty_version')});
+                return;
             }
 
-            browser.runtime.onMessage.addListener(listener6);
-
-            await browser.tabs.create({
-                url: browser.runtime.getURL('api_webchat/index.html?llm='+prefs.connection_type+'&call_id='+rand_call_id6+'&ph_def_val='+(prefs.placeholders_use_default_value?'1':'0')+'&prompt_id='+encodeURIComponent(prompt_info.id) + '&prompt_name=' + encodeURIComponent(i18nConditionalGet(prompt_info.name))),
-            });
+            await ensureCopilotTab(prefs.connection_type, prefs.placeholders_use_default_value?'1':'0', prompt_info.id, i18nConditionalGet(prompt_info.name));
+            await sendToCopilot({ command: "api_send", prompt: promptText, action: action, tabId: curr_tabId, mailMessageId: mailMessageId6, do_custom_text: do_custom_text, prompt_info: prompt_info});
+            taLog.log('[Anthropic API] Connection succeded!');
         }
         break;  // anthropic_api - END
 

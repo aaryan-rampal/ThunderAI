@@ -24,7 +24,10 @@ import {
   getMessages as dbGetMessages,
   addMessage,
   updateSession,
+  getEmbeddingsBySession,
+  putEmbedding,
 } from "./lib/db";
+import { embedText, rankEmbeddings, buildContextPrefix } from "./lib/rag";
 
 // These modules are external — they live in the extension and are loaded at
 // runtime from api_webchat/index.html. Vite leaves them as bare imports.
@@ -111,6 +114,8 @@ export function App() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const prefsApiRef = useRef<Record<string, any>>({});
   const integrationRef = useRef<Integration | null>(null);
+  const ragApiKeyRef = useRef<string>("");
+  const ragModelRef = useRef<string>("");
 
   const appendMessage = useCallback((msg: Message) => {
     setMessages((prev) => [...prev, msg]);
@@ -218,6 +223,40 @@ export function App() {
     []
   );
 
+  const sendWithRag = useCallback(async (text: string, msgId: string) => {
+    let prompt = text;
+
+    if (activeSessionIdRef.current && ragApiKeyRef.current && ragModelRef.current) {
+      try {
+        const [queryVector, records] = await Promise.all([
+          embedText(text, ragApiKeyRef.current, ragModelRef.current),
+          getEmbeddingsBySession(activeSessionIdRef.current),
+        ]);
+        const top = rankEmbeddings(queryVector, records, 3);
+        const prefix = buildContextPrefix(top);
+        if (prefix) prompt = prefix + text;
+
+        // Background: embed this message and store for future turns
+        void embedText(text, ragApiKeyRef.current, ragModelRef.current).then((vector) =>
+          putEmbedding({
+            messageId: msgId,
+            subject: "",
+            author: "",
+            date: new Date().toISOString().slice(0, 10),
+            snippet: text.slice(0, 200),
+            vector,
+            model: ragModelRef.current,
+            indexedAt: Date.now(),
+          })
+        );
+      } catch {
+        // RAG is best-effort — if embedding fails, send without context
+      }
+    }
+
+    workerRef.current?.postMessage({ type: "chatMessage", message: prompt });
+  }, []);
+
   const sendPrompt = useCallback(
     (message: PromptData & { prompt: string }) => {
       const text = convertNewlinesToBr(message.prompt);
@@ -226,10 +265,10 @@ export function App() {
       setStatusMessage(browser.i18n.getMessage("WaitingServerResponse") + "...");
       appendMessage({ id: makeId(), role: "user", content: text });
 
-      // Persist user message to IndexedDB in copilot mode
+      const msgId = makeUUID();
       if (activeSessionIdRef.current) {
         void addMessage({
-          id: makeUUID(),
+          id: msgId,
           sessionId: activeSessionIdRef.current,
           role: "user",
           content: text,
@@ -237,9 +276,9 @@ export function App() {
         });
       }
 
-      workerRef.current?.postMessage({ type: "chatMessage", message: text });
+      void sendWithRag(text, msgId);
     },
-    [appendMessage]
+    [appendMessage, sendWithRag]
   );
 
   // Worker message handler — set up once the worker ref is populated
@@ -386,6 +425,8 @@ export function App() {
 
       const prefsToGet: Record<string, unknown> = {
         do_debug: prefs_default["do_debug"],
+        rag_embedding_api_key: prefs_default["rag_embedding_api_key"],
+        rag_embedding_model: prefs_default["rag_embedding_model"],
       };
       for (const key in options_config) {
         prefsToGet[`${integration_prefix}_${key}`] = prefs_default[`${integration_prefix}_${key}`];
@@ -413,6 +454,8 @@ export function App() {
       }
 
       prefsApiRef.current = prefs_api;
+      ragApiKeyRef.current = (prefs_api["rag_embedding_api_key"] as string | undefined) ?? "";
+      ragModelRef.current = (prefs_api["rag_embedding_model"] as string | undefined) ?? "";
 
       const i18nStrings: Record<string, string> = {};
       const i18n_msg_key =
@@ -667,9 +710,10 @@ export function App() {
     setStatusMessage(browser.i18n.getMessage("WaitingServerResponse") + "...");
     appendMessage({ id: makeId(), role: "user", content: text });
 
+    const msgId = makeUUID();
     if (activeSessionIdRef.current) {
       void addMessage({
-        id: makeUUID(),
+        id: msgId,
         sessionId: activeSessionIdRef.current,
         role: "user",
         content: text,
@@ -677,7 +721,7 @@ export function App() {
       });
     }
 
-    workerRef.current?.postMessage({ type: "chatMessage", message: text });
+    void sendWithRag(text, msgId);
   };
 
   const handleStop = () => {

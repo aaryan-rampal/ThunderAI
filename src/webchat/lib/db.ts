@@ -160,3 +160,16 @@ export async function getAllEmbeddings(): Promise<EmbeddingRecord[]> {
   const store = tx(db, "embeddings", "readonly").objectStore("embeddings");
   return promisifyRequest(store.getAll());
 }
+
+export async function getEmbeddingsBySession(sessionId: string): Promise<EmbeddingRecord[]> {
+  const db = await openDB();
+  const msgIds = await promisifyRequest<IDBValidKey[]>(
+    tx(db, "messages", "readonly").objectStore("messages").index("sessionId").getAllKeys(sessionId)
+  );
+  if (msgIds.length === 0) return [];
+  const idSet = new Set(msgIds.map(String));
+  const all = await promisifyRequest<EmbeddingRecord[]>(
+    tx(db, "embeddings", "readonly").objectStore("embeddings").getAll()
+  );
+  return all.filter((r) => idSet.has(r.messageId));
+}

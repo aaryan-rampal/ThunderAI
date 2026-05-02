@@ -12,6 +12,7 @@ const {
   getMessages,
   putEmbedding,
   getAllEmbeddings,
+  getEmbeddingsBySession,
   resetDBCache,
 } = await import("./db.js");
 
@@ -183,6 +184,35 @@ describe("putEmbedding / getAllEmbeddings", () => {
     await putEmbedding(makeEmbedding({ messageId: "m1" }));
     await putEmbedding(makeEmbedding({ messageId: "m2" }));
     expect(await getAllEmbeddings()).toHaveLength(2);
+  });
+});
+
+// ── getEmbeddingsBySession ────────────────────────────────────────────────────
+
+describe("getEmbeddingsBySession", () => {
+  it("returns only embeddings whose messageId matches a message in the session", async () => {
+    await addMessage(makeMessage({ id: "m1", sessionId: "s1" }));
+    await addMessage(makeMessage({ id: "m2", sessionId: "s2" }));
+    await putEmbedding({
+      messageId: "m1", subject: "", author: "", date: "", snippet: "s1 msg",
+      vector: new Float32Array([1, 0]), model: "test", indexedAt: 1000,
+    });
+    await putEmbedding({
+      messageId: "m2", subject: "", author: "", date: "", snippet: "s2 msg",
+      vector: new Float32Array([0, 1]), model: "test", indexedAt: 1000,
+    });
+    const results = await getEmbeddingsBySession("s1");
+    expect(results).toHaveLength(1);
+    expect(results[0]?.messageId).toBe("m1");
+  });
+
+  it("returns empty array when session has no embeddings", async () => {
+    await addMessage(makeMessage({ id: "m1", sessionId: "s1" }));
+    expect(await getEmbeddingsBySession("s1")).toEqual([]);
+  });
+
+  it("returns empty array for a session that does not exist", async () => {
+    expect(await getEmbeddingsBySession("ghost")).toEqual([]);
   });
 });
 

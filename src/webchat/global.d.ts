@@ -26,6 +26,13 @@ declare const browser: {
           sendResponse: (response?: unknown) => void
         ) => void
       ) => void;
+      removeListener: (
+        callback: (
+          message: Record<string, unknown>,
+          sender: unknown,
+          sendResponse: (response?: unknown) => void
+        ) => void
+      ) => void;
     };
     getURL: (path: string) => string;
   };

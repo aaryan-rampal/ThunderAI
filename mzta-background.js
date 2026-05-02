@@ -555,14 +555,9 @@ async function openChatGPT(promptText, action, curr_tabId, prompt_name = '', do_
 
             browser.runtime.onMessage.addListener(listener2);
 
-            let win_options2 = {
+            await browser.tabs.create({
                 url: browser.runtime.getURL('api_webchat/index.html?llm='+prefs.connection_type+'&call_id='+rand_call_id2+'&ph_def_val='+(prefs.placeholders_use_default_value?'1':'0')+'&prompt_id='+encodeURIComponent(prompt_info.id) + '&prompt_name=' + encodeURIComponent(i18nConditionalGet(prompt_info.name))),
-                type: "popup",
-            }
-
-            applyWindowPositionAndSize(win_options2, prefs);
-
-            await browser.windows.create(win_options2);
+            });
         }
         break;  // chatgpt_api - END
 
@@ -601,14 +596,9 @@ async function openChatGPT(promptText, action, curr_tabId, prompt_name = '', do_
 
             browser.runtime.onMessage.addListener(listener5);
 
-            let win_options5 = {
+            await browser.tabs.create({
                 url: browser.runtime.getURL('api_webchat/index.html?llm='+prefs.connection_type+'&call_id='+rand_call_id5+'&ph_def_val='+(prefs.placeholders_use_default_value?'1':'0')+'&prompt_id='+encodeURIComponent(prompt_info.id) + '&prompt_name=' + encodeURIComponent(i18nConditionalGet(prompt_info.name))),
-                type: "popup",
-            }
-
-            applyWindowPositionAndSize(win_options5, prefs);
-
-            await browser.windows.create(win_options5);
+            });
         }
         break;  // google_gemini_api - END
 
@@ -654,14 +644,9 @@ async function openChatGPT(promptText, action, curr_tabId, prompt_name = '', do_
 
             browser.runtime.onMessage.addListener(listener3);
 
-            let win_options3 = {
+            await browser.tabs.create({
                 url: browser.runtime.getURL('api_webchat/index.html?llm='+prefs.connection_type+'&call_id='+rand_call_id3+'&ph_def_val='+(prefs.placeholders_use_default_value?'1':'0')+'&prompt_id='+encodeURIComponent(prompt_info.id) + '&prompt_name=' + encodeURIComponent(i18nConditionalGet(prompt_info.name))),
-                type: "popup",
-            }
-
-            applyWindowPositionAndSize(win_options3, prefs);
-
-            await browser.windows.create(win_options3);
+            });
 
         }
         break;  // ollama_api - END
@@ -702,14 +687,9 @@ async function openChatGPT(promptText, action, curr_tabId, prompt_name = '', do_
     
             browser.runtime.onMessage.addListener(listener4);
 
-            let win_options4 = {
+            await browser.tabs.create({
                 url: browser.runtime.getURL('api_webchat/index.html?llm='+prefs.connection_type+'&call_id='+rand_call_id4+'&ph_def_val='+(prefs.placeholders_use_default_value?'1':'0')+'&prompt_id='+encodeURIComponent(prompt_info.id) + '&prompt_name=' + encodeURIComponent(i18nConditionalGet(prompt_info.name))),
-                type: "popup",
-            }
-
-            applyWindowPositionAndSize(win_options4, prefs);
-
-            await browser.windows.create(win_options4);
+            });
         }
         break;  // openai_comp_api - END
 
@@ -752,14 +732,9 @@ async function openChatGPT(promptText, action, curr_tabId, prompt_name = '', do_
 
             browser.runtime.onMessage.addListener(listener6);
 
-            let win_options6 = {
+            await browser.tabs.create({
                 url: browser.runtime.getURL('api_webchat/index.html?llm='+prefs.connection_type+'&call_id='+rand_call_id6+'&ph_def_val='+(prefs.placeholders_use_default_value?'1':'0')+'&prompt_id='+encodeURIComponent(prompt_info.id) + '&prompt_name=' + encodeURIComponent(i18nConditionalGet(prompt_info.name))),
-                type: "popup",
-            }
-
-            applyWindowPositionAndSize(win_options6, prefs);
-
-            await browser.windows.create(win_options6);
+            });
         }
         break;  // anthropic_api - END
 

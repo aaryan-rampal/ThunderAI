@@ -124,7 +124,6 @@ async function searchPrompt(allPrompts, tabId, tabType){
  let input = document.getElementById('mzta_search_input');
  let autocompleteList = document.getElementById('mzta_autocomplete-items');
  let autocompleteListLoading = document.getElementById('mzta_autocomplete-items-loading');
- let _spacer_div = document.getElementById('_spacer_div');
  let banner = document.getElementById('mzta_search_banner');
 
  // Initialize variables to track focus and selection
@@ -155,7 +154,6 @@ async function searchPrompt(allPrompts, tabId, tabType){
 
    if (filteredData.length === 0) {
        autocompleteList.style.display = 'none';
-       _spacer_div.style.display = 'none';
        return;
    }
 
@@ -245,8 +243,7 @@ async function searchPrompt(allPrompts, tabId, tabType){
            selectedId = item.id; // Store the selected item's ID
            taLog.log('mousedown selectedId:', selectedId);
            autocompleteList.style.display = 'none';
-           _spacer_div.style.display = 'none';
-           sendPrompt(selectedId, tabId);
+               sendPrompt(selectedId, tabId);
        });
 
        // Add a select_prompt event to select the item
@@ -256,8 +253,7 @@ async function searchPrompt(allPrompts, tabId, tabType){
         selectedId = item.id; // Store the selected item's ID
         // console.log('>>>>>>>>>>>>> select_prompt selectedId:', selectedId);
         autocompleteList.style.display = 'none';
-        _spacer_div.style.display = 'none';
-        if(menuSendImmediately){
+         if(menuSendImmediately){
             sendPrompt(selectedId, tabId);
         }
     });
@@ -267,7 +263,6 @@ async function searchPrompt(allPrompts, tabId, tabType){
 
    autocompleteListLoading.style.display = 'none';
    autocompleteList.style.display = 'block';
-   _spacer_div.style.display = 'block';
  });
 
  // Add a keydown event listener to handle arrow navigation and selection

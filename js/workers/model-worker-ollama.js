@@ -142,6 +142,12 @@ self.onmessage = async function(event) {
                 }
             }
             break; //chatMessage
+        case 'reset':
+            conversationHistory = [];
+            break; //reset
+        case 'replayHistory':
+            conversationHistory.push({ role: event.data.role, content: event.data.content });
+            break; //replayHistory
         case 'stop':
             stopStreaming = true;
             break; //stop

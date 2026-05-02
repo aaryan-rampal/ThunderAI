@@ -310,12 +310,20 @@ export function App() {
     setActiveSessionId(sessionId);
     activeSessionIdRef.current = sessionId;
     firstResponseDoneRef.current = true; // don't re-title existing sessions
+    // Reset worker history and replay from DB so context matches what's shown
+    workerRef.current?.postMessage({ type: "reset" });
     const dbMsgs = await dbGetMessages(sessionId);
     const uiMessages: Message[] = dbMsgs.map((m) => ({
       id: m.id,
       role: m.role === "user" ? "user" : m.role === "assistant" ? "bot" : "info",
       content: m.content,
     }));
+    // Replay history into the worker so it has context for follow-up messages
+    for (const m of dbMsgs) {
+      if (m.role === "user" || m.role === "assistant") {
+        workerRef.current?.postMessage({ type: "replayHistory", role: m.role, content: m.content });
+      }
+    }
     setMessages(uiMessages);
   }, []);
 
@@ -337,6 +345,8 @@ export function App() {
       activeSessionIdRef.current = id;
       firstResponseDoneRef.current = false;
       setMessages([]);
+      // Clear the worker's conversation history so the new session starts fresh
+      workerRef.current?.postMessage({ type: "reset" });
       return id;
     },
     []

@@ -153,6 +153,10 @@ self.onmessage = async function(event) {
             }
             if (streamError) break;
         }
+    } else if (event.data.type === 'reset') {
+        conversationHistory = [];
+    } else if (event.data.type === 'replayHistory') {
+        conversationHistory.push({ role: event.data.role, content: event.data.content });
     } else if (event.data.type === 'stop') {
         stopStreaming = true;
     }

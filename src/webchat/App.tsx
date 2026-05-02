@@ -16,7 +16,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MessagesArea } from "./components/MessagesArea";
 import { MessageInput } from "./components/MessageInput";
-import type { CustomTextItem, Message, PromptData } from "./lib/types";
+import { Sidebar } from "./components/Sidebar";
+import type { CustomTextItem, Message, PromptData, Session } from "./lib/types";
+import {
+  createSession,
+  listSessions,
+  getMessages as dbGetMessages,
+  addMessage,
+  updateSession,
+} from "./lib/db";
 
 // These modules are external — they live in the extension and are loaded at
 // runtime from api_webchat/index.html. Vite leaves them as bare imports.
@@ -72,6 +80,10 @@ function makeId(): string {
   return Math.random().toString(36).slice(2);
 }
 
+function makeUUID(): string {
+  return crypto.randomUUID();
+}
+
 export function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [llmName, setLlmName] = useState("LLM");
@@ -80,10 +92,23 @@ export function App() {
   const [statusMessage, setStatusMessage] = useState("");
   const [customTextTrigger, setCustomTextTrigger] = useState<CustomTextItem[] | null>(null);
 
+  // Copilot mode state
+  const [isCopilot, setIsCopilot] = useState(false);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+
   const workerRef = useRef<Worker | null>(null);
   const promptDataRef = useRef<PromptData | null>(null);
   const streamingIdRef = useRef<string | null>(null);
   const rawTokensRef = useRef<string>("");
+  // Tracks whether first AI response in a session has been received (for title gen)
+  const firstResponseDoneRef = useRef(false);
+  const activeSessionIdRef = useRef<string | null>(null);
+  const llmNameRef = useRef<string>("LLM");
+  const modelRef = useRef<string>("");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const prefsApiRef = useRef<Record<string, any>>({});
+  const integrationRef = useRef<Integration | null>(null);
 
   const appendMessage = useCallback((msg: Message) => {
     setMessages((prev) => [...prev, msg]);
@@ -122,8 +147,74 @@ export function App() {
         return base;
       });
     });
+
+    // Persist assistant message to IndexedDB in copilot mode
+    if (activeSessionIdRef.current) {
+      const sessionId = activeSessionIdRef.current;
+      void addMessage({
+        id: makeUUID(),
+        sessionId,
+        role: "assistant",
+        content: html,
+        timestamp: Date.now(),
+      });
+      void updateSession(sessionId, { updatedAt: Date.now() });
+      setSessions((prev) =>
+        prev.map((s) => (s.id === sessionId ? { ...s, updatedAt: Date.now() } : s))
+          .sort((a, b) => b.updatedAt - a.updatedAt)
+      );
+    }
+
     streamingIdRef.current = null;
   }, []);
+
+  // Generate a session title after the first AI response
+  const generateTitle = useCallback(
+    async (sessionId: string, firstUserMessage: string) => {
+      const worker = workerRef.current;
+      if (!worker) return;
+
+      const titlePrompt =
+        `Based on this message, generate a short 4-6 word title for the conversation. ` +
+        `Reply with only the title, no punctuation:\n\n${firstUserMessage.slice(0, 500)}`;
+
+      // Fire a one-shot title generation by posting directly to the worker
+      // and listening for a single tokensDone response tagged with our session
+      const titleWorkerPath = WORKER_PATH_MAP[integrationRef.current ?? "chatgpt"];
+      const titleWorker = new Worker(titleWorkerPath, { type: "module" });
+      const integration = integrationRef.current ?? "chatgpt";
+      const initMsg: Record<string, unknown> = {
+        type: "init",
+        do_debug: false,
+        i18nStrings: {},
+      };
+      const opts = integration_options_config[integration] ?? {};
+      for (const key in opts) {
+        const prefKey = `${integration}_${key}`;
+        initMsg[prefKey] = prefsApiRef.current[prefKey];
+      }
+      titleWorker.postMessage(initMsg);
+      titleWorker.postMessage({ type: "chatMessage", message: titlePrompt });
+
+      let titleTokens = "";
+      titleWorker.onmessage = (event: MessageEvent) => {
+        const { type, payload } = event.data as { type: string; payload: Record<string, unknown> };
+        if (type === "newToken") {
+          titleTokens += (payload["token"] as string | undefined) ?? "";
+        } else if (type === "tokensDone") {
+          const title = titleTokens.trim().slice(0, 60);
+          void updateSession(sessionId, { title });
+          setSessions((prev) =>
+            prev.map((s) => (s.id === sessionId ? { ...s, title } : s))
+          );
+          titleWorker.terminate();
+        } else if (type === "error") {
+          titleWorker.terminate();
+        }
+      };
+    },
+    []
+  );
 
   const sendPrompt = useCallback(
     (message: PromptData & { prompt: string }) => {
@@ -132,6 +223,18 @@ export function App() {
       setDisabled(true);
       setStatusMessage(browser.i18n.getMessage("WaitingServerResponse") + "...");
       appendMessage({ id: makeId(), role: "user", content: text });
+
+      // Persist user message to IndexedDB in copilot mode
+      if (activeSessionIdRef.current) {
+        void addMessage({
+          id: makeUUID(),
+          sessionId: activeSessionIdRef.current,
+          role: "user",
+          content: text,
+          timestamp: Date.now(),
+        });
+      }
+
       workerRef.current?.postMessage({ type: "chatMessage", message: text });
     },
     [appendMessage]
@@ -168,6 +271,20 @@ export function App() {
           setSending(false);
           setDisabled(false);
           setStatusMessage("");
+
+          // Title generation after first assistant response
+          if (!firstResponseDoneRef.current && activeSessionIdRef.current) {
+            firstResponseDoneRef.current = true;
+            const sessionId = activeSessionIdRef.current;
+            // Find the first user message text from current messages
+            setMessages((prev) => {
+              const firstUser = prev.find((m) => m.role === "user");
+              if (firstUser) {
+                void generateTitle(sessionId, firstUser.content);
+              }
+              return prev;
+            });
+          }
           break;
         }
         case "error": {
@@ -185,7 +302,44 @@ export function App() {
           console.error("[ThunderAI] Unknown event type from API worker:", type);
       }
     },
-    [appendMessage, updateStreamingMessage, flushStreamingMessage]
+    [appendMessage, updateStreamingMessage, flushStreamingMessage, generateTitle]
+  );
+
+  // Load an existing session's messages into the chat view
+  const loadSession = useCallback(async (sessionId: string) => {
+    setActiveSessionId(sessionId);
+    activeSessionIdRef.current = sessionId;
+    firstResponseDoneRef.current = true; // don't re-title existing sessions
+    const dbMsgs = await dbGetMessages(sessionId);
+    const uiMessages: Message[] = dbMsgs.map((m) => ({
+      id: m.id,
+      role: m.role === "user" ? "user" : m.role === "assistant" ? "bot" : "info",
+      content: m.content,
+    }));
+    setMessages(uiMessages);
+  }, []);
+
+  // Create a new session and clear the chat
+  const newSession = useCallback(
+    (model: string) => {
+      const id = makeUUID();
+      const now = Date.now();
+      const session: Session = {
+        id,
+        title: browser.i18n.getMessage("copilot_untitled_session"),
+        createdAt: now,
+        updatedAt: now,
+        model,
+      };
+      void createSession(session);
+      setSessions((prev) => [session, ...prev]);
+      setActiveSessionId(id);
+      activeSessionIdRef.current = id;
+      firstResponseDoneRef.current = false;
+      setMessages([]);
+      return id;
+    },
+    []
   );
 
   // Initialize worker and wire up browser runtime messages
@@ -196,8 +350,12 @@ export function App() {
     const ph_def_val = urlParams.get("ph_def_val") ?? "";
     const prompt_id = urlParams.get("prompt_id") ?? "";
     const prompt_name = urlParams.get("prompt_name") ?? "";
+    const copilot = urlParams.get("copilot") === "1";
+
+    setIsCopilot(copilot);
 
     const integration = llm.replace("_api", "") as Integration;
+    integrationRef.current = integration;
     const workerPath = WORKER_PATH_MAP[integration];
 
     if (!workerPath) {
@@ -243,6 +401,8 @@ export function App() {
         }
       }
 
+      prefsApiRef.current = prefs_api;
+
       const i18nStrings: Record<string, string> = {};
       const i18n_msg_key =
         integration === "openai_comp"
@@ -255,12 +415,14 @@ export function App() {
 
       const modelKey = `${integration_prefix}_model`;
       const model = (prefs_api[modelKey] as string | undefined) ?? "";
+      modelRef.current = model;
 
       const resolvedLlmName =
         integration === "openai_comp"
           ? (prefs_api["openai_comp_chat_name"] as string | undefined) ?? "OpenAI Comp"
           : (LLM_DISPLAY_NAMES[integration] ?? "API");
       setLlmName(resolvedLlmName);
+      llmNameRef.current = resolvedLlmName;
 
       document.title += ` [${resolvedLlmName} | ${decodeURIComponent(prompt_name)}]`;
 
@@ -348,6 +510,18 @@ export function App() {
         return msgs;
       };
 
+      // In copilot mode: load existing sessions, wait for first api_send to create one
+      if (copilot) {
+        const existingSessions = await listSessions();
+        setSessions(existingSessions);
+        console.log('[ThunderAI copilot] Tab init done, sending copilot_ready. isCopilot state will update next render.');
+        // Signal background that this copilot tab is ready to receive prompts
+        await browser.runtime.sendMessage({ command: "copilot_ready" });
+        console.log('[ThunderAI copilot] copilot_ready sent to background.');
+        return;
+      }
+
+      // Non-copilot (one-shot) mode: existing behavior
       const additional_text_elements: Array<{ label: string; value: unknown }> = [];
       additional_text_elements.push({
         label: browser.i18n.getMessage("prompt_string"),
@@ -373,65 +547,10 @@ export function App() {
         window_id: win.id,
       });
 
-      // Runtime message handler
+      // Runtime message handler (one-shot mode)
       browser.runtime.onMessage.addListener((message) => {
         const msg = message as Record<string, unknown>;
-        switch (msg["command"]) {
-          case "api_send": {
-            promptDataRef.current = msg as unknown as PromptData;
-            if (msg["do_custom_text"] === "1") {
-              const ctArr = (
-                msg as { prompt_info?: { custom_text_array?: CustomTextItem[] } }
-              ).prompt_info?.custom_text_array ?? [];
-              setCustomTextTrigger(ctArr);
-            } else {
-              sendPrompt(msg as unknown as PromptData & { prompt: string });
-            }
-            break;
-          }
-          case "api_send_custom_text": {
-            const userInput = msg["custom_text"] as CustomTextItem[] | string | null;
-            if (userInput !== null && promptDataRef.current) {
-              const promptData = { ...promptDataRef.current };
-              const promptText = promptData.prompt ?? "";
-              if (!placeholdersUtils.hasPlaceholder(promptText, "additional_text")) {
-                const inputText = Array.isArray(userInput)
-                  ? userInput.map((obj) => obj.custom_text ?? "").join(" ")
-                  : userInput;
-                promptData.prompt = promptText + " " + inputText;
-              } else {
-                const finalSubs: Record<string, string> = {};
-                if (Array.isArray(userInput)) {
-                  userInput.forEach((obj) => {
-                    const key = obj.placeholder.replace(/^\{%|%\}$/g, "").trim();
-                    finalSubs[key] = obj.custom_text ?? "";
-                  });
-                } else {
-                  finalSubs["additional_text"] = userInput;
-                }
-                promptData.prompt = placeholdersUtils.replacePlaceholders({
-                  text: promptText,
-                  replacements: finalSubs,
-                  use_default_value: ph_def_val === "1",
-                });
-              }
-              promptDataRef.current = promptData;
-              sendPrompt(promptData as PromptData & { prompt: string });
-            }
-            break;
-          }
-          case "api_error": {
-            appendMessage({
-              id: makeId(),
-              role: "error",
-              content: (msg["error"] as string | undefined) ?? "Unknown error",
-            });
-            setSending(false);
-            setDisabled(false);
-            setStatusMessage("");
-            break;
-          }
-        }
+        handleApiMessage(msg, ph_def_val);
       });
     };
 
@@ -443,11 +562,109 @@ export function App() {
     // sendPrompt and appendMessage are stable useCallback refs; handleWorkerMessage too
   }, [handleWorkerMessage, sendPrompt, appendMessage]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // In copilot mode, the runtime listener is set up separately so it persists
+  // across new sessions (not removed after first message).
+  useEffect(() => {
+    if (!isCopilot) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const ph_def_val = urlParams.get("ph_def_val") ?? "";
+
+    console.log('[ThunderAI copilot] Attaching persistent runtime message listener (isCopilot=true)');
+
+    const listener = (message: unknown) => {
+      const msg = message as Record<string, unknown>;
+      console.log('[ThunderAI copilot] runtime message received:', msg["command"]);
+      if (msg["command"] === "api_send" || msg["command"] === "api_error" || msg["command"] === "api_send_custom_text") {
+        if (msg["command"] === "api_send") {
+          const id = newSession(modelRef.current);
+          activeSessionIdRef.current = id;
+          firstResponseDoneRef.current = false;
+          console.log('[ThunderAI copilot] New session created:', id, 'prompt:', (msg["prompt"] as string)?.slice(0, 80));
+        }
+        handleApiMessage(msg, ph_def_val);
+      }
+    };
+
+    browser.runtime.onMessage.addListener(listener);
+    return () => browser.runtime.onMessage.removeListener(listener);
+  }, [isCopilot, newSession]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleApiMessage = (msg: Record<string, unknown>, ph_def_val: string) => {
+    switch (msg["command"]) {
+      case "api_send": {
+        promptDataRef.current = msg as unknown as PromptData;
+        if (msg["do_custom_text"] === "1") {
+          const ctArr = (
+            msg as { prompt_info?: { custom_text_array?: CustomTextItem[] } }
+          ).prompt_info?.custom_text_array ?? [];
+          setCustomTextTrigger(ctArr);
+        } else {
+          sendPrompt(msg as unknown as PromptData & { prompt: string });
+        }
+        break;
+      }
+      case "api_send_custom_text": {
+        const userInput = msg["custom_text"] as CustomTextItem[] | string | null;
+        if (userInput !== null && promptDataRef.current) {
+          const promptData = { ...promptDataRef.current };
+          const promptText = promptData.prompt ?? "";
+          if (!placeholdersUtils.hasPlaceholder(promptText, "additional_text")) {
+            const inputText = Array.isArray(userInput)
+              ? userInput.map((obj) => obj.custom_text ?? "").join(" ")
+              : userInput;
+            promptData.prompt = promptText + " " + inputText;
+          } else {
+            const finalSubs: Record<string, string> = {};
+            if (Array.isArray(userInput)) {
+              userInput.forEach((obj) => {
+                const key = obj.placeholder.replace(/^\{%|%\}$/g, "").trim();
+                finalSubs[key] = obj.custom_text ?? "";
+              });
+            } else {
+              finalSubs["additional_text"] = userInput;
+            }
+            promptData.prompt = placeholdersUtils.replacePlaceholders({
+              text: promptText,
+              replacements: finalSubs,
+              use_default_value: ph_def_val === "1",
+            });
+          }
+          promptDataRef.current = promptData;
+          sendPrompt(promptData as PromptData & { prompt: string });
+        }
+        break;
+      }
+      case "api_error": {
+        appendMessage({
+          id: makeId(),
+          role: "error",
+          content: (msg["error"] as string | undefined) ?? "Unknown error",
+        });
+        setSending(false);
+        setDisabled(false);
+        setStatusMessage("");
+        break;
+      }
+    }
+  };
+
   const handleSend = (text: string) => {
     setSending(true);
     setDisabled(true);
     setStatusMessage(browser.i18n.getMessage("WaitingServerResponse") + "...");
     appendMessage({ id: makeId(), role: "user", content: text });
+
+    if (activeSessionIdRef.current) {
+      void addMessage({
+        id: makeUUID(),
+        sessionId: activeSessionIdRef.current,
+        role: "user",
+        content: text,
+        timestamp: Date.now(),
+      });
+    }
+
     workerRef.current?.postMessage({ type: "chatMessage", message: text });
   };
 
@@ -455,22 +672,55 @@ export function App() {
     workerRef.current?.postMessage({ type: "stop" });
   };
 
+  const handleSelectSession = async (id: string) => {
+    await loadSession(id);
+  };
+
+  const handleNewChat = () => {
+    newSession(modelRef.current);
+  };
+
+  if (isCopilot) {
+    return (
+      <div className="copilot-root">
+        <Sidebar
+          sessions={sessions}
+          activeSessionId={activeSessionId}
+          onSelectSession={handleSelectSession}
+          onNewChat={handleNewChat}
+        />
+        <div className="copilot-chat-area">
+          <MessagesArea messages={messages} llmName={llmName} />
+          <MessageInput
+            onSend={handleSend}
+            onStop={handleStop}
+            disabled={disabled}
+            sending={sending}
+            model={llmName}
+            statusMessage={statusMessage}
+            customTextTrigger={customTextTrigger}
+            onCustomTextDone={() => setCustomTextTrigger(null)}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div
-      className="flex flex-col h-screen max-w-[780px] w-full mx-auto"
-      style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}
-    >
-      <MessagesArea messages={messages} llmName={llmName} />
-      <MessageInput
-        onSend={handleSend}
-        onStop={handleStop}
-        disabled={disabled}
-        sending={sending}
-        model={llmName}
-        statusMessage={statusMessage}
-        customTextTrigger={customTextTrigger}
-        onCustomTextDone={() => setCustomTextTrigger(null)}
-      />
+    <div className="non-copilot-root">
+      <div className="flex flex-col h-screen max-w-[780px] w-full mx-auto">
+        <MessagesArea messages={messages} llmName={llmName} />
+        <MessageInput
+          onSend={handleSend}
+          onStop={handleStop}
+          disabled={disabled}
+          sending={sending}
+          model={llmName}
+          statusMessage={statusMessage}
+          customTextTrigger={customTextTrigger}
+          onCustomTextDone={() => setCustomTextTrigger(null)}
+        />
+      </div>
     </div>
   );
 }

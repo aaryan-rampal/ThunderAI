@@ -1944,5 +1944,29 @@
   "prefs_chatgpt_win_position_info":{
     "message": "Leave empty to use the default position.",
     "description": ""
+  },
+  "prefs_rag_enabled": {
+    "message": "Enable email context (RAG)",
+    "description": ""
+  },
+  "prefs_rag_embedding_model": {
+    "message": "Embedding model",
+    "description": ""
+  },
+  "prefs_rag_embedding_api_key": {
+    "message": "Embedding API key (falls back to OpenAI key)",
+    "description": ""
+  },
+  "prefs_rag_title_model": {
+    "message": "Title generation model (falls back to main model)",
+    "description": ""
+  },
+  "copilot_new_chat": {
+    "message": "New chat",
+    "description": ""
+  },
+  "copilot_untitled_session": {
+    "message": "Untitled",
+    "description": ""
   }
 }

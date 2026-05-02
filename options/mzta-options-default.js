@@ -139,5 +139,9 @@ export const prefs_default = {
     spamfilter_enabled_accounts: [],
     spamfilter_show_msg_panel: true,
     summarize: false,
+    rag_enabled: false,
+    rag_embedding_model: 'text-embedding-3-small',
+    rag_embedding_api_key: '',
+    rag_title_model: '',
     ...generated_prefs
 }

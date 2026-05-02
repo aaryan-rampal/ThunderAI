@@ -53,12 +53,14 @@ declare const loadPrompt: (id: string) => Promise<Record<string, unknown> | null
 
 type Integration = "chatgpt" | "google_gemini" | "ollama" | "openai_comp" | "anthropic";
 
-const WORKER_PATH_MAP: Record<Integration, string> = {
-  chatgpt: "../js/workers/model-worker-openai_responses.js",
-  google_gemini: "../js/workers/model-worker-google_gemini.js",
-  ollama: "../js/workers/model-worker-ollama.js",
-  openai_comp: "../js/workers/model-worker-openai_comp.js",
-  anthropic: "../js/workers/model-worker-anthropic.js",
+const WORKER_PATH = "../js/workers/model-worker.js";
+
+const PROVIDER_NAME: Record<Integration, string> = {
+  chatgpt: "openai_responses",
+  google_gemini: "google_gemini",
+  ollama: "ollama",
+  openai_comp: "openai_comp",
+  anthropic: "anthropic",
 };
 
 const LLM_DISPLAY_NAMES: Partial<Record<Integration, string>> = {
@@ -180,11 +182,11 @@ export function App() {
 
       // Fire a one-shot title generation by posting directly to the worker
       // and listening for a single tokensDone response tagged with our session
-      const titleWorkerPath = WORKER_PATH_MAP[integrationRef.current ?? "chatgpt"];
-      const titleWorker = new Worker(titleWorkerPath, { type: "module" });
+      const titleWorker = new Worker(WORKER_PATH, { type: "module" });
       const integration = integrationRef.current ?? "chatgpt";
       const initMsg: Record<string, unknown> = {
         type: "init",
+        provider: PROVIDER_NAME[integration],
         do_debug: false,
         i18nStrings: {},
       };
@@ -366,14 +368,13 @@ export function App() {
 
     const integration = llm.replace("_api", "") as Integration;
     integrationRef.current = integration;
-    const workerPath = WORKER_PATH_MAP[integration];
 
-    if (!workerPath) {
+    if (!PROVIDER_NAME[integration]) {
       console.error("[ThunderAI] API WebChat Unknown LLM type:", llm);
       return;
     }
 
-    const worker = new Worker(workerPath, { type: "module" });
+    const worker = new Worker(WORKER_PATH, { type: "module" });
     workerRef.current = worker;
     worker.onmessage = handleWorkerMessage;
 
@@ -438,6 +439,7 @@ export function App() {
 
       const workerInitMessage: Record<string, unknown> = {
         type: "init",
+        provider: PROVIDER_NAME[integration],
         do_debug: prefs_api["do_debug"],
         i18nStrings,
       };

@@ -28,111 +28,172 @@ messagesInputStyle.textContent = `
         display: flex;
         justify-content: space-between;
         align-items: center;
-        height: 24px;
-        margin: var(--margin);
-        margin-bottom: 20px;
+        padding: 10px 16px 14px;
+        gap: 8px;
+        border-top: 1px solid #e5e5e5;
+        background: #ffffff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     #messageInputField {
         flex-grow: 1;
-        padding: 10px;
-        font-size: 1rem;
-        border: 1px solid lightgrey;
-        border-radius: 10px;
-        margin-right: var(--padding);
+        padding: 9px 14px;
+        font-size: 13.5px;
+        font-family: inherit;
+        border: 1px solid #d0d0d0;
+        border-radius: 20px;
         outline: none;
+        background: #f7f7f7;
+        color: #1a1a1a;
+        transition: border-color 100ms ease, background 100ms ease;
     }
     #messageInputField:focus {
-        border-color: darkgrey;
+        border-color: #0060df;
+        background: #ffffff;
     }
-    #sendButton {
-        width: 44px;
+    #sendButton, #stopButton {
+        width: 36px;
         height: 36px;
+        flex-shrink: 0;
         cursor: pointer;
-        border-radius: 10px;
-        border: 1px outset buttonface;
-    }
-    #stopButton {
-        width: 44px;
-        height: 36px;
-        cursor: pointer;
-        border-radius: 10px;
-    }
-    #statusLogger{
-        font-size: 0.8rem;
-        position: absolute;
-        bottom: 1.5em;
-        right: 5em;
-        border: 1px solid lightgrey;
-        border-radius: 5px;
-        padding: 5px;
-        background: #F2F2F2;
+        border-radius: 50%;
+        border: none;
         display: flex;
         align-items: center;
-        gap: 3px;
+        justify-content: center;
+        transition: background 80ms ease;
     }
-    #statusLoggerImg{
+    #sendButton {
+        background: #0060df;
+        color: #ffffff;
+    }
+    #sendButton:hover {
+        background: #0050c0;
+    }
+    #sendButton:disabled {
+        background: #ccc;
+        cursor: default;
+    }
+    #stopButton {
+        background: #f0f0f0;
+        color: #1a1a1a;
+    }
+    #stopButton:hover {
+        background: #e0e0e0;
+    }
+    #statusLogger {
+        font-size: 0.78rem;
+        position: absolute;
+        bottom: 4em;
+        right: 1em;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 5px 10px;
+        background: #f7f7f7;
+        color: #555;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+    #statusLoggerImg {
         display: none;
         vertical-align: middle;
+        width: 14px;
+        height: 14px;
     }
-    #mzta-custom_text{
-        padding:10px;
-        width:50%;
-        min-width:300px;
-        max-width:80%;
-        height:auto;
-        max-height:80%;
-        border-radius:5px;
-        overflow-y:auto;
-        overflow-x:hidden;
-        position:fixed;
-        top:50%;
-        left:50%;
-        display:none;
-        transform:translate(-50%,-50%);
-        text-align:center;
-        background:#333;
-        color:white;
-        border:3px solid white;
+    #mzta-custom_text {
+        padding: 16px;
+        width: 50%;
+        min-width: 300px;
+        max-width: 80%;
+        height: auto;
+        max-height: 80%;
+        border-radius: 12px;
+        overflow-y: auto;
+        overflow-x: hidden;
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        display: none;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        background: #2a2a2a;
+        color: #e8e8e8;
+        border: 1px solid #444;
         box-sizing: border-box;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.4);
     }
-    #mzta-custom_loading{
-        height:50px;display:none;
+    #mzta-custom_loading {
+        height: 40px;
+        display: none;
     }
-    #mzta-custom_textarea{
-        color:black;
-        padding:5px;
-        font-size:15px;
-        width:100%;
+    #mzta-custom_textarea {
+        color: #1a1a1a;
+        padding: 8px;
+        font-size: 14px;
+        font-family: inherit;
+        width: 100%;
         box-sizing: border-box;
         resize: vertical;
+        border-radius: 6px;
+        border: 1px solid #ccc;
     }
-    #mzta-custom_info{
-        text-align:center;
-        width:100%;
-        padding-bottom:10px;
-        font-size:15px;
+    #mzta-custom_info {
+        text-align: center;
+        width: 100%;
+        padding-bottom: 10px;
+        font-size: 14px;
     }
-    #mzta-custom_info span{
-        font-size:0.8em;
+    #mzta-custom_info span {
+        font-size: 0.82em;
+        opacity: 0.7;
     }
-    #mzta-custom_step{
+    #mzta-custom_step {
         position: absolute;
-        bottom: 5px;
-        right: 10px;
-        font-size: 12px;
-        color: #ccc;
+        bottom: 6px;
+        right: 12px;
+        font-size: 11px;
+        color: #aaa;
     }
-    #mzta-custom_btn{
-        margin-top:7px;
+    #mzta-custom_btn {
+        margin-top: 10px;
+        padding: 7px 18px;
+        border-radius: 20px;
+        border: none;
+        background: #0060df;
+        color: #fff;
+        font-size: 13.5px;
+        font-family: inherit;
+        cursor: pointer;
+    }
+    #mzta-custom_btn:hover {
+        background: #0050c0;
     }
     @media (prefers-color-scheme: dark) {
-        #messageInputField {
-            background-color: #303030;
-            color: #ffffff;
+        :host {
+            background: #1e1e1e;
+            border-top-color: #3a3a3a;
         }
-        #statusLogger{
-            background: #212121;
-            color: #ffffff;
+        #messageInputField {
+            background: #2a2a2a;
+            color: #e8e8e8;
+            border-color: #444;
+        }
+        #messageInputField:focus {
+            border-color: #4a9eff;
+            background: #2a2a2a;
+        }
+        #stopButton {
+            background: #2a2a2a;
+            color: #e8e8e8;
+        }
+        #stopButton:hover {
+            background: #333;
+        }
+        #statusLogger {
+            background: #2a2a2a;
+            color: #ccc;
+            border-color: #444;
         }
     }
 `;

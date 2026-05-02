@@ -30,177 +30,295 @@ messagesAreaStyle.textContent = `
         flex-direction: column;
         height: 100%;
         overflow-y: auto;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     #messages {
         display: flex;
         flex-direction: column;
-        min-height: 100%;
-        margin-left: var(--margin);
-        margin-right: var(--margin);
+        padding: 16px;
+        gap: 4px;
         overflow-x: hidden;
         overflow-y: scroll;
-        max-height: 100%;
+        flex: 1;
+    }
+    .message-row {
+        display: flex;
+        flex-direction: column;
+        max-width: 82%;
+        gap: 3px;
+    }
+    .message-row.user {
+        align-self: flex-end;
+        align-items: flex-end;
+    }
+    .message-row.bot, .message-row.error, .message-row.info {
+        align-self: flex-start;
+        align-items: flex-start;
+    }
+    .message-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: #888;
+        padding: 0 4px;
+        margin-bottom: 1px;
     }
     .message {
-        margin: 0;
-        line-height: 1.3;
-        padding: 5px;
-        border-radius: 10px;
+        padding: 10px 14px;
+        border-radius: 16px;
+        line-height: 1.55;
+        font-size: 13.5px;
+        word-break: break-word;
     }
-    .message p{
-        margin: 0;
+    .message.user {
+        background-color: #0060df;
+        color: #ffffff;
+        border-bottom-right-radius: 4px;
+    }
+    .message.bot {
+        background-color: #f0f0f0;
+        color: #1a1a1a;
+        border-bottom-left-radius: 4px;
+    }
+    .message.error {
+        background-color: #fde8e8;
+        color: #b91c1c;
+        border-radius: 12px;
+    }
+    .message.info {
+        background-color: #e8f0fe;
+        color: #1a4a8a;
+        border-radius: 12px;
+        font-size: 0.82em;
+    }
+    .message p {
+        margin: 0 0 6px 0;
         padding: 0;
+    }
+    .message p:last-child {
+        margin-bottom: 0;
+    }
+    .message ul, .message ol {
+        margin: 4px 0;
+        padding-left: 20px;
+    }
+    .message code {
+        font-family: "SF Mono", "Fira Code", monospace;
+        font-size: 0.88em;
+        background: rgba(0,0,0,0.08);
+        padding: 1px 5px;
+        border-radius: 4px;
+    }
+    .message pre {
+        background: rgba(0,0,0,0.06);
+        border-radius: 8px;
+        padding: 10px 12px;
+        overflow-x: auto;
+        margin: 6px 0;
+    }
+    .message pre code {
+        background: none;
+        padding: 0;
+    }
+    .message-spacer {
+        height: 8px;
     }
     .token {
         display: inline;
         opacity: 0;
-        animation: fadeIn 1000ms forwards;
+        animation: fadeIn 600ms forwards;
+    }
+    @keyframes fadeIn {
+        to { opacity: 1; }
     }
     .action-buttons {
-        line-height: 1.3;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding: 6px 0 12px 0;
+        align-self: flex-start;
+    }
+    .action-buttons button {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 12px;
+        border-radius: 20px;
+        border: 1px solid #d0d0d0;
+        background: #ffffff;
+        color: #1a1a1a;
+        font-size: 12.5px;
+        font-family: inherit;
+        cursor: pointer;
+        transition: background 80ms ease, border-color 80ms ease;
+    }
+    .action-buttons button:hover {
+        background: #f0f0f0;
+        border-color: #bbb;
+    }
+    .action-buttons button.action_btn {
+        background: #0060df;
+        color: #ffffff;
+        border-color: #0060df;
+    }
+    .action-buttons button.action_btn:hover {
+        background: #0050c0;
+        border-color: #0050c0;
+    }
+    .action-buttons button.close_btn {
+        color: #666;
+    }
+    .action_btn_info {
+        font-size: 0.7em;
+        opacity: 0.8;
+    }
+    .sel_info {
+        font-size: 0.7rem;
+        color: #888;
+        margin-top: 2px;
+        display: none;
+        padding: 0 4px;
+    }
+
+    /* Split button */
+    .split-button {
+        display: inline-flex;
+        position: relative;
+    }
+    .split-button .action_btn {
+        border-top-right-radius: 0;
+        border-bottom-right-radius: 0;
+        border-right: 1px solid rgba(255,255,255,0.3);
+    }
+    .split-button .dropdown-toggle {
         display: flex;
         align-items: center;
         justify-content: center;
-    }
-    .action-buttons button {
-        display: inline;
-        margin: 0 10px;
-        padding: 5px 10px;
+        width: 30px;
+        padding: 0;
+        border-left: none;
+        border-top-left-radius: 0;
+        border-bottom-left-radius: 0;
+        border-top-right-radius: 20px;
+        border-bottom-right-radius: 20px;
+        background: #0060df;
+        color: #fff;
+        border-color: #0060df;
         cursor: pointer;
-        border: 1px outset buttonface;
     }
-    .action-buttons button.close_btn, .action-buttons button.diffv_btn {
-        border-radius: 5px;
+    .split-button .dropdown-toggle:hover {
+        background: #0050c0;
     }
-    .action-buttons button.action_btn {
-        margin-right: 0;
-        border-top-left-radius: 5px;
-        border-bottom-left-radius: 5px;
+    .dropdown-toggle svg {
+        fill: currentColor;
     }
-    .action_btn_info {
-        font-size: 0.6rem;
-        color: gray;
-        display: inline-block;
-    }
-    @keyframes fadeIn {
-        to {
-            opacity: 1;
-        }
-    }
-    h2 {
-        font-weight: bold;
-        font-size: 1rem;
-        margin-top: 20px;
-    }
-    hr {
-        width: 100%;
-    }
-    .error{
-        background: lightcoral;
-        color: white;
-        margin-bottom: var(--margin);
-    }
-    .info{
-        background: lightblue;
-        color: navy;
-        margin-bottom: var(--margin);
-        font-size: 0.8em;
-    }
-    .info_obj{
-        color:rgb(0, 71, 36);
-    }
-    .sel_info{
-        font-size: 0.7rem;
-        color: gray;
-        margin-top: 5px;
+    .dropdown-menu {
+        position: absolute;
+        top: calc(100% + 4px);
+        right: 0;
         display: none;
-        width: 100%;
-        text-align: center;
+        flex-direction: column;
+        background: #ffffff;
+        border: 1px solid #d0d0d0;
+        border-radius: 10px;
+        min-width: 160px;
+        z-index: 1000;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+        overflow: hidden;
     }
-    
+    .dropdown-menu button {
+        padding: 9px 14px;
+        border: none;
+        border-radius: 0;
+        background: #ffffff;
+        text-align: left;
+        cursor: pointer;
+        font-size: 12.5px;
+        color: #1a1a1a;
+    }
+    .dropdown-menu button:hover {
+        background: #f0f0f0;
+    }
+    .dropdown-menu.show {
+        display: flex;
+    }
+
     /* diff viewer */
     .added {
         background-color: #d4fcdc;
         display: inline;
+        border-radius: 2px;
     }
     .removed {
         background-color: #fddddd;
         display: inline;
         text-decoration: line-through;
+        border-radius: 2px;
     }
-    
-    /* Split button styles */
-    .split-button {
-      display: inline-flex;
-      position: relative;
-      font-family: sans-serif;
+    .info_obj {
+        color: rgb(0, 71, 36);
     }
 
-    .split-button button {
-      padding: 5px 0px 5px 10px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-
-    .split-button .dropdown-toggle {
-      border-left: none;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 38px;
-      margin-left:-1px;
-      border-top-right-radius: 5px;
-      border-bottom-right-radius: 5px;
-      padding:0;
-    }
-
-    .dropdown-toggle svg {
-      fill: #555;
-      margin-left: -4px;
-    }
-
-    .dropdown-menu {
-      position: absolute;
-      top: 2.55rem;
-      right:0;
-      display: none;
-      flex-direction: column;
-      background-color: white;
-      border: 1px solid #ccc;
-      min-width: 160px;
-      z-index: 1000;
-      margin-top: 2px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-      border-radius: 5px;
-      text-align: right;
-      width: -moz-available;
-    }
-
-    .dropdown-menu button {
-      padding: 10px 14px;
-      border: none;
-      background-color: white;
-      text-align: right;
-      cursor: pointer;
-      font-size: 0.6rem;
-      color: gray;
-    }
-
-    .dropdown-menu button:hover {
-      background-color: #f0f0f0;
-    }
-
-    .dropdown-menu.show {
-      display: flex;
-    }
-      
-    /* Dark mode styles */
     @media (prefers-color-scheme: dark) {
+        .message.bot {
+            background-color: #2a2a2a;
+            color: #e8e8e8;
+        }
+        .message.user {
+            background-color: #0050c0;
+        }
+        .message.error {
+            background-color: #3a1a1a;
+            color: #fca5a5;
+        }
+        .message.info {
+            background-color: #1a2a3a;
+            color: #93c5fd;
+        }
+        .message code {
+            background: rgba(255,255,255,0.1);
+        }
+        .message pre {
+            background: rgba(255,255,255,0.06);
+        }
+        .action-buttons button {
+            background: #2a2a2a;
+            color: #e8e8e8;
+            border-color: #444;
+        }
+        .action-buttons button:hover {
+            background: #333;
+            border-color: #555;
+        }
+        .action-buttons button.action_btn {
+            background: #0050c0;
+            border-color: #0050c0;
+        }
+        .action-buttons button.action_btn:hover {
+            background: #0040a0;
+            border-color: #0040a0;
+        }
+        .dropdown-menu {
+            background: #2a2a2a;
+            border-color: #444;
+        }
+        .dropdown-menu button {
+            background: #2a2a2a;
+            color: #e8e8e8;
+        }
+        .dropdown-menu button:hover {
+            background: #333;
+        }
+        .split-button .dropdown-toggle {
+            background: #0050c0;
+            border-color: #0050c0;
+        }
         .added {
-            background-color:rgb(0, 94, 0);
+            background-color: rgb(0, 94, 0);
         }
         .removed {
-            background-color:rgb(90, 0, 0);
+            background-color: rgb(90, 0, 0);
         }
     }
 `;
@@ -226,18 +344,19 @@ class MessagesArea extends HTMLElement {
     }
 
     createNewAccumulatingMessage() {
-        const lastMessage = this.messages.lastElementChild;
-        const isLastMessageFromUser = lastMessage && lastMessage.classList.contains('user');
+        const row = document.createElement('div');
+        row.classList.add('message-row', 'bot');
 
-        if (isLastMessageFromUser) {
-            const header = document.createElement('h2');
-            header.textContent = this.llmName;
-            this.messages.appendChild(header);
-        }
+        const label = document.createElement('div');
+        label.classList.add('message-label');
+        label.textContent = this.llmName;
+        row.appendChild(label);
 
         this.accumulatingMessageEl = document.createElement('div');
         this.accumulatingMessageEl.classList.add('message', 'bot');
-        this.messages.appendChild(this.accumulatingMessageEl);
+        row.appendChild(this.accumulatingMessageEl);
+
+        this.messages.appendChild(row);
     }
 
     init(worker) {
@@ -256,59 +375,52 @@ class MessagesArea extends HTMLElement {
 
     appendUserMessage(messageText, type="user") {
         this.fullTextHTML = "";
-        // console.log("[ThunderAI] appendUserMessage: " + messageText);
-        const header = document.createElement('h2');
-        let source = browser.i18n.getMessage("apiwebchat_you");
+
+        const row = document.createElement('div');
+        row.classList.add('message-row', type);
+
+        const label = document.createElement('div');
+        label.classList.add('message-label');
         switch (type) {
             case "user":
-                source = browser.i18n.getMessage("apiwebchat_you");
+                label.textContent = browser.i18n.getMessage("apiwebchat_you");
                 break;
             case "info":
-                source = browser.i18n.getMessage("apiwebchat_info");
+                label.textContent = browser.i18n.getMessage("apiwebchat_info");
                 break;
         }
-        header.textContent = source;
-        this.messages.appendChild(header);
+        row.appendChild(label);
 
         const messageElement = document.createElement('div');
         messageElement.classList.add('message', type);
-        // Replace \n with <br> for correct HTML display
         if (type === "info") {
             messageElement.appendChild(htmlStringToFragment(messageText));
         } else {
             messageElement.appendChild(textWithBrToFragment(messageText));
         }
-        // messageElement.textContent = messageText;
-        // // Replace \n with <br> elements for correct HTML display
-        // messageElement.innerHTML = '';
-        // messageText.split('\n').forEach((line, idx, arr) => {
-        //     messageElement.appendChild(document.createTextNode(line));
-        //     if (idx < arr.length - 1) {
-        //     messageElement.appendChild(document.createElement('br'));
-        //     }
-        // });
-        this.messages.appendChild(messageElement);
+        row.appendChild(messageElement);
+
+        this.messages.appendChild(row);
         this.scrollToBottom();
     }
 
     appendBotMessage(messageText, type="bot") {
-        // console.log("[ThunderAI] appendBotMessage: " + messageText);
-
         this.fullTextHTML = messageText;
 
-        const lastMessage = this.messages.lastElementChild;
-        const isLastMessageFromUser = lastMessage && lastMessage.classList.contains('user');
+        const row = document.createElement('div');
+        row.classList.add('message-row', type);
 
-        if (isLastMessageFromUser) {
-            const header = document.createElement('h2');
-            header.textContent = this.llmName + (type=='error' ? " - " + browser.i18n.getMessage("apiwebchat_error") : "");
-            this.messages.appendChild(header);
-        }
+        const label = document.createElement('div');
+        label.classList.add('message-label');
+        label.textContent = this.llmName + (type === 'error' ? ' — ' + browser.i18n.getMessage("apiwebchat_error") : '');
+        row.appendChild(label);
 
         const messageElement = document.createElement('div');
         messageElement.classList.add('message', type);
         messageElement.textContent = messageText;
-        this.messages.appendChild(messageElement);
+        row.appendChild(messageElement);
+
+        this.messages.appendChild(row);
         this.scrollToBottom();
     }
 
@@ -482,8 +594,9 @@ class MessagesArea extends HTMLElement {
     }
 
     addDivider() {
-        const divider = document.createElement('hr');
-        this.messages.appendChild(divider);
+        const spacer = document.createElement('div');
+        spacer.classList.add('message-spacer');
+        this.messages.appendChild(spacer);
         this.scrollToBottom();
     }
 
@@ -519,11 +632,16 @@ class MessagesArea extends HTMLElement {
             });
         });
 
-        const header = document.createElement('h2');
-        header.textContent = browser.i18n.getMessage("chatgpt_win_diff_title");
-        this.messages.appendChild(header);
-        
-        this.messages.appendChild(messageElement);
+        const row = document.createElement('div');
+        row.classList.add('message-row', 'bot');
+
+        const label = document.createElement('div');
+        label.classList.add('message-label');
+        label.textContent = browser.i18n.getMessage("chatgpt_win_diff_title");
+        row.appendChild(label);
+        row.appendChild(messageElement);
+
+        this.messages.appendChild(row);
         this.addDivider();
         this.scrollToBottom();
     }

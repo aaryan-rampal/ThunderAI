@@ -1,0 +1,13 @@
+{
+  "name": "thunderai-fork",
+  "version": "4.0.7",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "build": "node scripts/build-extension.mjs",
+    "verify": "node scripts/build-extension.mjs && node scripts/verify-extension.mjs",
+    "package:xpi": "node scripts/build-extension.mjs && node scripts/verify-extension.mjs && node scripts/package-xpi.mjs",
+    "deploy": "node scripts/build-extension.mjs && node scripts/verify-extension.mjs && node scripts/deploy-thunderbird.mjs"
+  }
+}

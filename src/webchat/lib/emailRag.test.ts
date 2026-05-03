@@ -37,6 +37,17 @@ describe("extractEmailRagQuery", () => {
     });
   });
 
+  it("strips the @emails token when followed by punctuation", () => {
+    expect(extractEmailRagQuery("What is @emails?")).toEqual({
+      shouldUseEmailRag: true,
+      query: "What is",
+    });
+    expect(extractEmailRagQuery("@emails: renewal")).toEqual({
+      shouldUseEmailRag: true,
+      query: "renewal",
+    });
+  });
+
   it("falls back to the original text when only the trigger is entered", () => {
     expect(extractEmailRagQuery("@emails")).toEqual({
       shouldUseEmailRag: true,

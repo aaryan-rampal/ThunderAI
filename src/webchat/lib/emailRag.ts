@@ -40,7 +40,7 @@ export interface MailApi {
   };
 }
 
-const EMAIL_TRIGGER = /(^|\s)@emails(?=\s|$)/i;
+const EMAIL_TRIGGER = /(^|\s)@emails(?:[?:,.;!])?(?=\s|$)/i;
 
 export function extractEmailRagQuery(text: string): {
   shouldUseEmailRag: boolean;

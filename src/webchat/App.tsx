@@ -17,6 +17,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { MessagesArea } from "./components/MessagesArea";
 import { MessageInput } from "./components/MessageInput";
 import { Sidebar } from "./components/Sidebar";
+import { createChatMarkdownRenderer } from "./lib/markdown";
 import type { CustomTextItem, Message, PromptData, Session } from "./lib/types";
 import {
   createSession,
@@ -164,7 +165,7 @@ export function App() {
     const fullText = rawTokensRef.current;
     rawTokensRef.current = "";
 
-    const html = markdownit().render(fullText);
+    const html = createChatMarkdownRenderer(markdownit).render(fullText);
 
     setMessages((prev) => {
       const id = streamingIdRef.current;

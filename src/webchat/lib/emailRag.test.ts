@@ -100,9 +100,9 @@ describe("listAllMessages", () => {
         list: vi.fn(async () => [{ folders: [inbox, archive] }]),
       },
       messages: {
-        list: vi.fn(async (folder: { id: string }) => ({
-          id: folder.id === "inbox" ? "next-inbox" : null,
-          messages: [{ id: folder.id.length, subject: folder.id }],
+        list: vi.fn(async (folderId: string) => ({
+          id: folderId === "inbox" ? "next-inbox" : null,
+          messages: [{ id: folderId.length, subject: folderId }],
         })),
         continueList: vi.fn(async () => ({
           id: null,
@@ -115,6 +115,34 @@ describe("listAllMessages", () => {
 
     expect(messages.map((message) => message.subject)).toEqual(["inbox", "inbox", "archive", "year"]);
     expect(api.messages.continueList).toHaveBeenCalledWith("next-inbox");
+    expect(api.messages.list).toHaveBeenCalledWith("inbox");
+  });
+
+  it("skips folders that Thunderbird cannot enumerate", async () => {
+    const api = {
+      accounts: {
+        list: vi.fn(async () => [{
+          folders: [
+            { id: "ok", subFolders: [] },
+            { id: "broken", subFolders: [] },
+          ],
+        }]),
+      },
+      messages: {
+        list: vi.fn(async (folderId: string) => {
+          if (folderId === "broken") throw new Error("folder unavailable");
+          return {
+            id: null,
+            messages: [{ id: 1, subject: "ok" }],
+          };
+        }),
+        continueList: vi.fn(),
+      },
+    };
+
+    const messages = await listAllMessages(api);
+
+    expect(messages.map((message) => message.subject)).toEqual(["ok"]);
   });
 });
 

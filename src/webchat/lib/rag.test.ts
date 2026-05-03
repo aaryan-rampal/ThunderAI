@@ -137,6 +137,19 @@ describe("embedText", () => {
     expect(body.encoding_format).toBe("float");
   });
 
+  it("strips non-ASCII characters from the API key before sending headers", async () => {
+    const mockVector = [0.1, 0.2];
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: [{ embedding: mockVector }] }),
+    } as Response);
+
+    await embedText("hello world", " \u23fAsk-test\n", "openai/text-embedding-3-small");
+
+    const [, init] = vi.mocked(fetch).mock.calls[0] as [string, RequestInit];
+    expect((init.headers as Record<string, string>)["Authorization"]).toBe("Bearer sk-test");
+  });
+
   it("returns a Float32Array of the embedding values", async () => {
     const mockVector = [0.1, 0.2, 0.3, 0.4];
     vi.mocked(fetch).mockResolvedValueOnce({

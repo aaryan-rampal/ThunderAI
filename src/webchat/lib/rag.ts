@@ -7,11 +7,16 @@ export async function embedText(
   apiKey: string,
   model: string
 ): Promise<Float32Array> {
+  const cleanApiKey = apiKey.replace(/[^\x21-\x7E]/g, "");
+  if (!cleanApiKey) {
+    throw new Error("Embedding API key is empty or contains only invalid characters");
+  }
+
   const res = await fetch(EMBEDDING_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
+      Authorization: `Bearer ${cleanApiKey}`,
       "HTTP-Referer": "https://micz.it/thunderbird-addon-thunderai/",
       "X-Title": "ThunderAI",
     },

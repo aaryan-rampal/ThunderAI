@@ -33,7 +33,7 @@ export interface MailApi {
     list: () => Promise<MailAccount[]>;
   };
   messages: {
-    list: (folder: MailFolder) => Promise<MessageListPage>;
+    list: (folderId: string) => Promise<MessageListPage>;
     continueList: (messageListId: string) => Promise<MessageListPage>;
     get?: (messageId: number) => Promise<MessageHeader>;
     getFull?: (messageId: number) => Promise<MessagePart>;
@@ -85,12 +85,16 @@ export async function listAllMessages(api: MailApi): Promise<MessageHeader[]> {
   const messages: MessageHeader[] = [];
 
   for (const folder of folders) {
-    let page = await api.messages.list(folder);
-    messages.push(...page.messages);
-
-    while (page.id) {
-      page = await api.messages.continueList(page.id);
+    try {
+      let page = await api.messages.list(folder.id);
       messages.push(...page.messages);
+
+      while (page.id) {
+        page = await api.messages.continueList(page.id);
+        messages.push(...page.messages);
+      }
+    } catch (error) {
+      console.warn("[ThunderAI] Skipping folder during email RAG indexing:", folder.id, error);
     }
   }
 

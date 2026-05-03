@@ -56,7 +56,7 @@ export interface ChatMessage {
 }
 
 export interface EmbeddingRecord {
-  messageId: string;
+  messageId: string | number;
   subject: string;
   author: string;
   date: string;
@@ -64,4 +64,9 @@ export interface EmbeddingRecord {
   vector: Float32Array;
   model: string;
   indexedAt: number;
+}
+
+export interface RagMetaRecord {
+  key: string;
+  value: unknown;
 }

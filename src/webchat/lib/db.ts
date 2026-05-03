@@ -8,7 +8,7 @@
  *  (at your option) any later version.
  */
 
-import type { Session, ChatMessage, EmbeddingRecord } from "./types";
+import type { Session, ChatMessage, EmbeddingRecord, RagMetaRecord } from "./types";
 
 const DB_NAME = "thunderai_copilot";
 const DB_VERSION = 1;
@@ -161,6 +161,18 @@ export async function getAllEmbeddings(): Promise<EmbeddingRecord[]> {
   return promisifyRequest(store.getAll());
 }
 
+export async function getEmbedding(messageId: string | number): Promise<EmbeddingRecord | undefined> {
+  const db = await openDB();
+  const store = tx(db, "embeddings", "readonly").objectStore("embeddings");
+  return promisifyRequest(store.get(messageId));
+}
+
+export async function deleteEmbedding(messageId: string | number): Promise<void> {
+  const db = await openDB();
+  const store = tx(db, "embeddings", "readwrite").objectStore("embeddings");
+  await promisifyRequest(store.delete(messageId));
+}
+
 export async function getEmbeddingsBySession(sessionId: string): Promise<EmbeddingRecord[]> {
   const db = await openDB();
   const msgIds = await promisifyRequest<IDBValidKey[]>(
@@ -171,5 +183,20 @@ export async function getEmbeddingsBySession(sessionId: string): Promise<Embeddi
   const all = await promisifyRequest<EmbeddingRecord[]>(
     tx(db, "embeddings", "readonly").objectStore("embeddings").getAll()
   );
-  return all.filter((r) => idSet.has(r.messageId));
+  return all.filter((r) => idSet.has(String(r.messageId)));
+}
+
+// RAG metadata
+
+export async function setRagMeta(key: string, value: unknown): Promise<void> {
+  const db = await openDB();
+  const store = tx(db, "rag_meta", "readwrite").objectStore("rag_meta");
+  await promisifyRequest(store.put({ key, value }));
+}
+
+export async function getRagMeta<T>(key: string): Promise<T | undefined> {
+  const db = await openDB();
+  const store = tx(db, "rag_meta", "readonly").objectStore("rag_meta");
+  const result = await promisifyRequest<RagMetaRecord | undefined>(store.get(key));
+  return result?.value as T | undefined;
 }

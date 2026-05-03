@@ -11,8 +11,12 @@ const {
   addMessage,
   getMessages,
   putEmbedding,
+  getEmbedding,
+  deleteEmbedding,
   getAllEmbeddings,
   getEmbeddingsBySession,
+  setRagMeta,
+  getRagMeta,
   resetDBCache,
 } = await import("./db.js");
 
@@ -185,6 +189,13 @@ describe("putEmbedding / getAllEmbeddings", () => {
     await putEmbedding(makeEmbedding({ messageId: "m2" }));
     expect(await getAllEmbeddings()).toHaveLength(2);
   });
+
+  it("retrieves and deletes an embedding by Thunderbird message id", async () => {
+    await putEmbedding(makeEmbedding({ messageId: 42 }));
+    expect((await getEmbedding(42))?.messageId).toBe(42);
+    await deleteEmbedding(42);
+    expect(await getEmbedding(42)).toBeUndefined();
+  });
 });
 
 // ── getEmbeddingsBySession ────────────────────────────────────────────────────
@@ -250,5 +261,18 @@ describe("connection caching", () => {
 
     const after = await listSessions();
     expect(after).toHaveLength(0);
+  });
+});
+
+// ── RAG metadata ─────────────────────────────────────────────────────────────
+
+describe("setRagMeta / getRagMeta", () => {
+  it("stores and retrieves arbitrary RAG metadata values", async () => {
+    await setRagMeta("email_total", 123);
+    expect(await getRagMeta<number>("email_total")).toBe(123);
+  });
+
+  it("returns undefined for missing metadata keys", async () => {
+    expect(await getRagMeta<number>("missing")).toBeUndefined();
   });
 });

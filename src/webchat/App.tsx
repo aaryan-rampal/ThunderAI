@@ -24,10 +24,24 @@ import {
   getMessages as dbGetMessages,
   addMessage,
   updateSession,
-  getEmbeddingsBySession,
+  getAllEmbeddings,
+  getEmbedding,
   putEmbedding,
+  deleteEmbedding,
+  setRagMeta,
+  getRagMeta,
 } from "./lib/db";
-import { embedText, rankEmbeddings, buildContextPrefix } from "./lib/rag";
+import { embedText, rankEmbeddings } from "./lib/rag";
+import {
+  buildEmailRagPrompt,
+  countIndexedEmails,
+  emailEmbeddingText,
+  extractEmailRagQuery,
+  extractTextFromMessagePart,
+  listAllMessages,
+  toEmailEmbeddingRecord,
+  type MailApi,
+} from "./lib/emailRag";
 
 // These modules are external — they live in the extension and are loaded at
 // runtime from api_webchat/index.html. Vite leaves them as bare imports.
@@ -55,6 +69,12 @@ declare const loadPrompt: (id: string) => Promise<Record<string, unknown> | null
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 type Integration = "chatgpt" | "google_gemini" | "ollama" | "openai_comp" | "anthropic";
+
+interface RagStatus {
+  indexed: number;
+  total: number;
+  indexing: boolean;
+}
 
 const WORKER_PATH = "../js/workers/model-worker.js";
 
@@ -101,6 +121,12 @@ export function App() {
   const [isCopilot, setIsCopilot] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [ragEnabled, setRagEnabled] = useState(false);
+  const [ragStatus, setRagStatus] = useState<RagStatus>({
+    indexed: 0,
+    total: 0,
+    indexing: false,
+  });
 
   const workerRef = useRef<Worker | null>(null);
   const promptDataRef = useRef<PromptData | null>(null);
@@ -116,6 +142,8 @@ export function App() {
   const integrationRef = useRef<Integration | null>(null);
   const ragApiKeyRef = useRef<string>("");
   const ragModelRef = useRef<string>("");
+  const ragEnabledRef = useRef(false);
+  const indexingRef = useRef(false);
 
   const appendMessage = useCallback((msg: Message) => {
     setMessages((prev) => [...prev, msg]);
@@ -223,34 +251,104 @@ export function App() {
     []
   );
 
-  const sendWithRag = useCallback(async (text: string, msgId: string) => {
-    let prompt = text;
+  const refreshRagStatus = useCallback(async (total?: number) => {
+    const records = await getAllEmbeddings();
+    const indexed = countIndexedEmails(records);
+    const storedTotal = total ?? (await getRagMeta<number>("email_total")) ?? 0;
+    setRagStatus((prev) => ({
+      indexed,
+      total: Math.max(storedTotal, indexed),
+      indexing: prev.indexing,
+    }));
+  }, []);
 
-    if (activeSessionIdRef.current && ragApiKeyRef.current && ragModelRef.current) {
+  const syncEmailIndex = useCallback(async (promptIfEmpty: boolean) => {
+    if (indexingRef.current || !ragEnabledRef.current) return;
+    if (!ragApiKeyRef.current || !ragModelRef.current) return;
+
+    indexingRef.current = true;
+    setRagStatus((prev) => ({ ...prev, indexing: true }));
+
+    try {
+      const api = browser as unknown as MailApi;
+      const messagesToIndex = await listAllMessages(api);
+      const total = messagesToIndex.length;
+      await setRagMeta("email_total", total);
+
+      const existingRecords = (await getAllEmbeddings())
+        .filter((record) => typeof record.messageId === "number");
+      if (promptIfEmpty && existingRecords.length === 0) {
+        const shouldIndex = window.confirm(
+          `${total} emails found. Index them for RAG? This will use your embedding API.`
+        );
+        if (!shouldIndex) {
+          ragEnabledRef.current = false;
+          setRagEnabled(false);
+          await browser.storage.sync.set({ rag_enabled: false });
+          return;
+        }
+      }
+
+      const validIds = new Set<number>();
+      for (const record of existingRecords) {
+        const messageId = record.messageId;
+        if (typeof messageId !== "number") continue;
+        try {
+          await browser.messages.get(messageId);
+          validIds.add(messageId);
+        } catch {
+          await deleteEmbedding(messageId);
+        }
+      }
+
+      setRagStatus({ indexed: validIds.size, total, indexing: true });
+
+      for (const header of messagesToIndex) {
+        if (!ragEnabledRef.current) break;
+        if (validIds.has(header.id)) continue;
+        if (await getEmbedding(header.id)) continue;
+
+        const fullMessage = await browser.messages.getFull(header.id);
+        const bodyText = extractTextFromMessagePart(fullMessage);
+        const vector = await embedText(
+          emailEmbeddingText(header, bodyText),
+          ragApiKeyRef.current,
+          ragModelRef.current
+        );
+        await putEmbedding(toEmailEmbeddingRecord(header, bodyText, vector, ragModelRef.current));
+        validIds.add(header.id);
+        setRagStatus({ indexed: validIds.size, total, indexing: true });
+      }
+    } catch (error) {
+      console.error("[ThunderAI] Email RAG indexing failed:", error);
+    } finally {
+      indexingRef.current = false;
+      setRagStatus((prev) => ({ ...prev, indexing: false }));
+      void refreshRagStatus();
+    }
+  }, [refreshRagStatus]);
+
+  const sendWithEmailRag = useCallback(async (text: string) => {
+    const { shouldUseEmailRag, query } = extractEmailRagQuery(text);
+    let prompt = shouldUseEmailRag ? query : text;
+
+    if (
+      shouldUseEmailRag &&
+      ragEnabledRef.current &&
+      ragApiKeyRef.current &&
+      ragModelRef.current
+    ) {
       try {
         const [queryVector, records] = await Promise.all([
-          embedText(text, ragApiKeyRef.current, ragModelRef.current),
-          getEmbeddingsBySession(activeSessionIdRef.current),
+          embedText(query, ragApiKeyRef.current, ragModelRef.current),
+          getAllEmbeddings(),
         ]);
-        const top = rankEmbeddings(queryVector, records, 3);
-        const prefix = buildContextPrefix(top);
-        if (prefix) prompt = prefix + text;
-
-        // Background: embed this message and store for future turns
-        void embedText(text, ragApiKeyRef.current, ragModelRef.current).then((vector) =>
-          putEmbedding({
-            messageId: msgId,
-            subject: "",
-            author: "",
-            date: new Date().toISOString().slice(0, 10),
-            snippet: text.slice(0, 200),
-            vector,
-            model: ragModelRef.current,
-            indexedAt: Date.now(),
-          })
-        );
-      } catch {
-        // RAG is best-effort — if embedding fails, send without context
+        const emailRecords = records.filter((record) => typeof record.messageId === "number");
+        const top = rankEmbeddings(queryVector, emailRecords, 3);
+        prompt = buildEmailRagPrompt(query, top);
+      } catch (error) {
+        console.error("[ThunderAI] Email RAG lookup failed:", error);
+        prompt = query;
       }
     }
 
@@ -276,9 +374,9 @@ export function App() {
         });
       }
 
-      void sendWithRag(text, msgId);
+      void sendWithEmailRag(text);
     },
-    [appendMessage, sendWithRag]
+    [appendMessage, sendWithEmailRag]
   );
 
   // Worker message handler — set up once the worker ref is populated
@@ -425,6 +523,7 @@ export function App() {
 
       const prefsToGet: Record<string, unknown> = {
         do_debug: prefs_default["do_debug"],
+        rag_enabled: prefs_default["rag_enabled"],
         rag_embedding_api_key: prefs_default["rag_embedding_api_key"],
         rag_embedding_model: prefs_default["rag_embedding_model"],
       };
@@ -454,6 +553,8 @@ export function App() {
       }
 
       prefsApiRef.current = prefs_api;
+      ragEnabledRef.current = Boolean(prefs_api["rag_enabled"]);
+      setRagEnabled(ragEnabledRef.current);
       ragApiKeyRef.current = (prefs_api["rag_embedding_api_key"] as string | undefined) ?? "";
       ragModelRef.current = (prefs_api["rag_embedding_model"] as string | undefined) ?? "";
 
@@ -569,6 +670,10 @@ export function App() {
       if (copilot) {
         const existingSessions = await listSessions();
         setSessions(existingSessions);
+        await refreshRagStatus();
+        if (ragEnabledRef.current) {
+          void syncEmailIndex(true);
+        }
         console.log('[ThunderAI copilot] Tab init done, sending copilot_ready. isCopilot state will update next render.');
         // Signal background that this copilot tab is ready to receive prompts
         await browser.runtime.sendMessage({ command: "copilot_ready" });
@@ -615,7 +720,7 @@ export function App() {
       worker.terminate();
     };
     // sendPrompt and appendMessage are stable useCallback refs; handleWorkerMessage too
-  }, [handleWorkerMessage, sendPrompt, appendMessage]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [handleWorkerMessage, sendPrompt, appendMessage, refreshRagStatus, syncEmailIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // In copilot mode, the runtime listener is set up separately so it persists
   // across new sessions (not removed after first message).
@@ -721,7 +826,7 @@ export function App() {
       });
     }
 
-    void sendWithRag(text, msgId);
+    void sendWithEmailRag(text);
   };
 
   const handleStop = () => {
@@ -736,6 +841,15 @@ export function App() {
     newSession(modelRef.current);
   };
 
+  const handleToggleRag = (enabled: boolean) => {
+    ragEnabledRef.current = enabled;
+    setRagEnabled(enabled);
+    void browser.storage.sync.set({ rag_enabled: enabled });
+    if (enabled) {
+      void syncEmailIndex(false);
+    }
+  };
+
   if (isCopilot) {
     return (
       <div className="copilot-root">
@@ -744,6 +858,9 @@ export function App() {
           activeSessionId={activeSessionId}
           onSelectSession={handleSelectSession}
           onNewChat={handleNewChat}
+          ragEnabled={ragEnabled}
+          ragStatus={ragStatus}
+          onToggleRag={handleToggleRag}
         />
         <div className="copilot-chat-area">
           <MessagesArea messages={messages} llmName={llmName} isCopilot={true} />

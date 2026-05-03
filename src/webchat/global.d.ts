@@ -39,7 +39,23 @@ declare const browser: {
   storage: {
     sync: {
       get: (keys: Record<string, unknown>) => Promise<Record<string, unknown>>;
+      set: (keys: Record<string, unknown>) => Promise<void>;
     };
+  };
+  accounts: {
+    list: () => Promise<Array<Record<string, unknown>>>;
+  };
+  messages: {
+    list: (folder: Record<string, unknown>) => Promise<{
+      id: string | null;
+      messages: Array<Record<string, unknown>>;
+    }>;
+    continueList: (messageListId: string) => Promise<{
+      id: string | null;
+      messages: Array<Record<string, unknown>>;
+    }>;
+    get: (messageId: number) => Promise<Record<string, unknown>>;
+    getFull: (messageId: number) => Promise<Record<string, unknown>>;
   };
   i18n: {
     getMessage: (key: string) => string;

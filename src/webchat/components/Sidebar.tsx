@@ -15,9 +15,24 @@ interface SidebarProps {
   activeSessionId: string | null;
   onSelectSession: (id: string) => void;
   onNewChat: () => void;
+  ragEnabled: boolean;
+  ragStatus: {
+    indexed: number;
+    total: number;
+    indexing: boolean;
+  };
+  onToggleRag: (enabled: boolean) => void;
 }
 
-export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewChat }: SidebarProps) {
+export function Sidebar({
+  sessions,
+  activeSessionId,
+  onSelectSession,
+  onNewChat,
+  ragEnabled,
+  ragStatus,
+  onToggleRag,
+}: SidebarProps) {
   return (
     <aside className="sidebar">
       <button
@@ -27,6 +42,23 @@ export function Sidebar({ sessions, activeSessionId, onSelectSession, onNewChat 
       >
         {browser.i18n.getMessage("copilot_new_chat")}
       </button>
+      <div className="sidebar-rag-status">
+        <div className="sidebar-rag-row">
+          <span>RAG</span>
+          <label className="sidebar-rag-toggle">
+            <input
+              type="checkbox"
+              checked={ragEnabled}
+              onChange={(event) => onToggleRag(event.currentTarget.checked)}
+            />
+            <span>{ragEnabled ? "On" : "Off"}</span>
+          </label>
+        </div>
+        <div className="sidebar-rag-count">
+          {ragStatus.indexed} / {ragStatus.total} emails indexed
+          {ragStatus.indexing ? "..." : ""}
+        </div>
+      </div>
       <ul className="sidebar-session-list">
         {sessions.map((session) => (
           <li

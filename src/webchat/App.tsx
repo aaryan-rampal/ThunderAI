@@ -74,6 +74,7 @@ interface RagStatus {
   indexed: number;
   total: number;
   indexing: boolean;
+  message?: string;
 }
 
 const WORKER_PATH = "../js/workers/model-worker.js";
@@ -259,21 +260,36 @@ export function App() {
       indexed,
       total: Math.max(storedTotal, indexed),
       indexing: prev.indexing,
+      ...(prev.message ? { message: prev.message } : {}),
     }));
   }, []);
 
   const syncEmailIndex = useCallback(async (promptIfEmpty: boolean) => {
     if (indexingRef.current || !ragEnabledRef.current) return;
-    if (!ragApiKeyRef.current || !ragModelRef.current) return;
 
     indexingRef.current = true;
-    setRagStatus((prev) => ({ ...prev, indexing: true }));
+    setRagStatus((prev) => ({
+      indexed: prev.indexed,
+      total: prev.total,
+      indexing: true,
+    }));
 
     try {
       const api = browser as unknown as MailApi;
       const messagesToIndex = await listAllMessages(api);
       const total = messagesToIndex.length;
       await setRagMeta("email_total", total);
+
+      if (!ragApiKeyRef.current || !ragModelRef.current) {
+        const records = await getAllEmbeddings();
+        setRagStatus({
+          indexed: countIndexedEmails(records),
+          total,
+          indexing: false,
+          message: "Embedding settings missing",
+        });
+        return;
+      }
 
       const existingRecords = (await getAllEmbeddings())
         .filter((record) => typeof record.messageId === "number");
@@ -321,6 +337,11 @@ export function App() {
       }
     } catch (error) {
       console.error("[ThunderAI] Email RAG indexing failed:", error);
+      setRagStatus((prev) => ({
+        ...prev,
+        indexing: false,
+        message: "Unable to count emails",
+      }));
     } finally {
       indexingRef.current = false;
       setRagStatus((prev) => ({ ...prev, indexing: false }));

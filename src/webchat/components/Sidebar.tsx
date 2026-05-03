@@ -20,6 +20,7 @@ interface SidebarProps {
     indexed: number;
     total: number;
     indexing: boolean;
+    message?: string;
   };
   onToggleRag: (enabled: boolean) => void;
 }
@@ -58,6 +59,9 @@ export function Sidebar({
           {ragStatus.indexed} / {ragStatus.total} emails indexed
           {ragStatus.indexing ? "..." : ""}
         </div>
+        {ragStatus.message ? (
+          <div className="sidebar-rag-message">{ragStatus.message}</div>
+        ) : null}
       </div>
       <ul className="sidebar-session-list">
         {sessions.map((session) => (

@@ -1,141 +1,96 @@
-# ![ThunderAI icon](images/icon-32px.png "ThunderAI") ThunderAI
+# ![ThunderAI icon](images/icon-32px.png "ThunderAI") ThunderAI — Personal Fork
 
-ThunderAI is a Thunderbird Addon that uses the capabilities of ChatGPT, Google Gemini, Claude or Ollama to enhance email management.
+> **This is a personal fork of [ThunderAI by micz](https://github.com/micz/ThunderAI).** It contains experimental changes that diverge from the upstream extension. If people find it useful, it may grow into something more.
 
-It enables users to analyse, write, correct, assign tags, create calendar events or tasks and optimize their emails, facilitating more effective and professional communication.
-
-ThunderAI is a tool for anyone looking to improve their email quality, both in content and grammar, making the writing process quicker and more intuitive. 
-
-You can also define, export and import your own **[custom prompts](https://micz.it/thunderbird-addon-thunderai/custom-prompts/)**!
-
-In any custom prompt you can use additional **[data placeholders](https://micz.it/thunderbird-addon-thunderai/data-placeholders/)**!
-
-Using an API integration, you can activate some automatic features:
-- Tagging incoming emails
-- Moving spam emails to the junk folder
+ThunderAI integrates multiple AI providers (ChatGPT Web, OpenAI API, Google Gemini, Claude/Anthropic, Ollama, and OpenAI-compatible APIs) directly into Thunderbird.
 
 <br>
 
+## What's different in this fork
+
+### Modernized chat interface
+- Rebuilt `api_webchat` with **React + TypeScript + Tailwind CSS** (Vite build)
+- Chat bubbles and pill-style action buttons replacing the original flat layout
+- Proper markdown rendering in AI responses
+
+### Copilot mode
+- AI replies open in a **persistent copilot tab** rather than ephemeral popups
+- Two-column layout with a sidebar for session navigation
+- Sessions stored in IndexedDB; conversation history resets cleanly on new sessions
+
+### RAG (Retrieval-Augmented Generation)
+- Background embedding pipeline indexes your emails into IndexedDB
+- Email-triggered RAG: mentioning an email in chat kicks off automatic indexing
+- Session-scoped vector retrieval feeds relevant email context into prompts
+- Configurable embedding model and title model via the options page
+
+### Toolchain
+- Node build pipeline for bundling, verification, and packaging
+- All five per-provider web workers consolidated into one
+
+<br>
+
+## AI Provider Support
 
 > [!NOTE]
 > **Available Integrations**
-> - **ChatGPT Web**
->   - There is no need for an API key!
->   - You can use a free account!
->
-> <br>
->
-> - **OpenAI API**
->   - Connect directly to ChatGPT using your API key.
->
-> <br>
-> 
-> - **Google Gemini**
->   - You can use also the _System Instructions_ and _thinkingBudget_ options if needed.
-> 
-> 
-> <br>
-> 
-> - **Claude API**
->   - You need to grant the permission "_Access your data for sites in the https://anthropic.com domain_" to use the Claude API.
->
->
-> <br>
-> 
-> - **Using Ollama**
->   - Just remember to add `OLLAMA_ORIGINS = moz-extension://*` to the Ollama server environment variables.
->   - [More info about CORS](https://micz.it/thunderbird-addon-thunderai/ollama-cors-information/)
->
-> <br>
-> 
-> - **OpenAI Compatible API**
->   - You can also use a local OpenAI Compatible API server, like LM Studio or Mistral AI!
->   - There is also an option to remove the "v1" segment from the API url, if needed, and to manually set the model name if the server doesn't have a models list endpoint.
->   - You can also use one of these predefined configurations:
->     - DeepSeek API
->     - Grok API
->     - Mistral API
->     - OpenRouter API
->     - Perplexity API
-
-
+> - **ChatGPT Web** — no API key needed, free account works
+> - **OpenAI API** — connect with your API key
+> - **Google Gemini** — supports System Instructions and thinkingBudget
+> - **Claude API** — requires the "_Access your data for sites in the https://anthropic.com domain_" permission
+> - **Ollama** — set `OLLAMA_ORIGINS = moz-extension://*` on the server; [CORS info](https://micz.it/thunderbird-addon-thunderai/ollama-cors-information/)
+> - **OpenAI Compatible API** — LM Studio, Mistral AI, DeepSeek, Grok, OpenRouter, Perplexity, and more
 
 <br>
 
-## Documentation
+## Original features (still present)
 
-[Setup Guides](https://micz.it/thunderbird-addon-thunderai/guides/) - Step-by-step guides to connect ThunderAI to the AI backend of your choice, from ChatGPT to local models with Ollama.
-
-[Custom Prompt Tutorial](https://micz.it/thunderbird-addon-thunderai/tutorial/) - Learn how to build your first custom prompt from scratch, combining placeholders and user input to automate your email replies.
-
-[ThunderAI Prompt Architect](https://chatgpt.com/g/g-69b6b11c89b88191a6798be6e97025f1-thunder-ai-prompt-architect) - Let ChatGPT help you crafting your custom prompts. Thanks to [Paweł](https://github.com/PawelKinczyk) for this tool!
-
-<br>
-
-## Translations
-Do you want to help translate this addon?
-
-[Find out how!](https://micz.it/thunderbird-addon-thunderai/translate/)
-
-
+- Analyse, write, correct, tag, summarize, and reply to emails
+- Create calendar events and tasks from email content
+- Automatic incoming email tagging and spam filtering (API integrations)
+- Custom prompts with data placeholders — [docs](https://micz.it/thunderbird-addon-thunderai/custom-prompts/)
 
 <br>
 
-## Changelog
-ThunderAI's changes are logged [here](CHANGELOG.md).
+## Upstream
 
-<br>
+The original extension is maintained by [micz](https://github.com/micz/ThunderAI) and published on [addons.thunderbird.net](https://addons.thunderbird.net). For production use, prefer the upstream release.
 
-## Privacy and Permissions
-You can find all the information on [this page](https://micz.it/thunderbird-addon-thunderai/privacy-permissions/).
-
-<br>
-
-## Support this addon!
-Are you using this addon in your Thunderbird?
-<br>Consider to support the development making a small donation. [Click here!](https://www.paypal.com/donate/?business=UHN4SXPGEXWQL&no_recurring=1&item_name=Thunderbird+Addon+ThunderAI&currency_code=EUR)
+Upstream docs:
+- [Setup Guides](https://micz.it/thunderbird-addon-thunderai/guides/)
+- [Custom Prompt Tutorial](https://micz.it/thunderbird-addon-thunderai/tutorial/)
+- [ThunderAI Prompt Architect GPT](https://chatgpt.com/g/g-69b6b11c89b88191a6798be6e97025f1-thunder-ai-prompt-architect)
 
 <br>
 
 ## Attributions
 
-### Translations
-- Brazilian Portuguese - Português Brasileiro (pt-br): Bruno Pereira de Souza <img src="https://micz.it/weblate/thunderai/pt-br.svg">
-- Chinese (Simplified) - Jiǎntǐ Zhōngwén (简体中文) (zh_Hans): [jeklau](https://github.com/jeklau), [Min9X1n](https://github.com/Min9X1n) <img src="https://micz.it/weblate/thunderai/zh_Hans.svg">
-- Chinese (Traditional) - Fántǐ Zhōngwén (繁體中文) (zh_Hant): [evez](https://github.com/evez) <img src="https://micz.it/weblate/thunderai/zh_Hant.svg">
-- Croatian - Hrvatski (hr): Petar Jedvaj <img src="https://micz.it/weblate/thunderai/hr.svg">
-- Czech - Čeština (cs): [Fjuro](https://hosted.weblate.org/user/Fjuro/), [Jaroslav Staněk](https://hosted.weblate.org/user/jaroush/) <img src="https://micz.it/weblate/thunderai/cs.svg">
-- French - Français (fr): Generated automatically, [Noam](https://github.com/noam-sc) <img src="https://micz.it/weblate/thunderai/fr.svg">
-- German - Deutsch (de): Generated automatically <img src="https://micz.it/weblate/thunderai/de.svg">
-- Greek - Elliniká (Ελληνικά) (el): [ChristosK.](https://github.com/christoskaterini) <img src="https://micz.it/weblate/thunderai/el.svg">
-- Italian - Italiano (it): [Mic](https://github.com/micz) <img src="https://micz.it/weblate/thunderai/it.svg">
-- Japanese - Nihongo (日本語) (ja): [Taichi Ito](https://github.com/watya1) <img src="https://micz.it/weblate/thunderai/ja.svg">
-- Polish - Polski (pl): [neexpl](https://github.com/neexpl), [makkacprzak](https://github.com/makkacprzak) <img src="https://micz.it/weblate/thunderai/pl.svg">
-- Russian - Russkiy (русский) (ru): [Maksim](https://hosted.weblate.org/user/law820314/) <img src="https://micz.it/weblate/thunderai/ru.svg">
-- Spanish - Español (es): [Gerardo Sobarzo](https://hosted.weblate.org/user/gerardo.sobarzo/), [Andrés Rendón Hernández](https://hosted.weblate.org/user/arendon/), [Erick Limon](https://hosted.weblate.org/user/ErickLimonG/) <img src="https://micz.it/weblate/thunderai/es.svg">
-- Swedish - Svenska (sv): [Andreas Pettersson](https://hosted.weblate.org/user/Andy_tb/), [Luna Jernberg](https://hosted.weblate.org/user/bittin1ddc447d824349b2/) <img src="https://micz.it/weblate/thunderai/sv.svg">
-<br>
-
-Do you want to help translate this addon? [Find out how!](https://micz.it/thunderbird-addon-thunderai/translate/)  <br>
-_The language status represents the percentage of translated strings in the latest stable release._
-
-
-<br>
+### Translations (upstream)
+- Brazilian Portuguese (pt-br): Bruno Pereira de Souza
+- Chinese Simplified (zh_Hans): [jeklau](https://github.com/jeklau), [Min9X1n](https://github.com/Min9X1n)
+- Chinese Traditional (zh_Hant): [evez](https://github.com/evez)
+- Croatian (hr): Petar Jedvaj
+- Czech (cs): [Fjuro](https://hosted.weblate.org/user/Fjuro/), [Jaroslav Staněk](https://hosted.weblate.org/user/jaroush/)
+- French (fr): Generated automatically, [Noam](https://github.com/noam-sc)
+- German (de): Generated automatically
+- Greek (el): [ChristosK.](https://github.com/christoskaterini)
+- Italian (it): [Mic](https://github.com/micz)
+- Japanese (ja): [Taichi Ito](https://github.com/watya1)
+- Polish (pl): [neexpl](https://github.com/neexpl), [makkacprzak](https://github.com/makkacprzak)
+- Russian (ru): [Maksim](https://hosted.weblate.org/user/law820314/)
+- Spanish (es): [Gerardo Sobarzo](https://hosted.weblate.org/user/gerardo.sobarzo/), [Andrés Rendón Hernández](https://hosted.weblate.org/user/arendon/), [Erick Limon](https://hosted.weblate.org/user/ErickLimonG/)
+- Swedish (sv): [Andreas Pettersson](https://hosted.weblate.org/user/Andy_tb/), [Luna Jernberg](https://hosted.weblate.org/user/bittin1ddc447d824349b2/)
 
 ### Graphics
-- ChatGPT-4 for the help with the addon icon ;-)
-- <a href="https://loading.io">loading.io</a> for the loading SVGs
-- [Fluent Design System](https://www.iconfinder.com/fluent-designsystem) for the Custom Prompts table sorting icons
-- [JessiGue](https://www.flaticon.com/authors/jessigue) for the show/hide icon for api key fields
-- [Iconka.com](https://www.iconarchive.com/artist/iconka.html) for the autotag context menu icon
-- [Icojam](https://www.iconarchive.com/artist/icojam.html) for the spam filter context menu icon
-- [Roundicons](https://www.flaticon.com/authors/roundicons) for the summarize context menu icon
-
-
-<br>
-
+- ChatGPT-4 for the addon icon
+- [loading.io](https://loading.io) for loading SVGs
+- [Fluent Design System](https://www.iconfinder.com/fluent-designsystem) for sorting icons
+- [JessiGue](https://www.flaticon.com/authors/jessigue) for the show/hide icon
+- [Iconka.com](https://www.iconarchive.com/artist/iconka.html) for the autotag icon
+- [Icojam](https://www.iconarchive.com/artist/icojam.html) for the spam filter icon
+- [Roundicons](https://www.flaticon.com/authors/roundicons) for the summarize icon
 
 ### Miscellaneous
-- <a href="https://github.com/KudoAI/chatgpt.js">chatgpt.js</a> for providing methods to interact with the ChatGPT web frontend
-- <a href="https://github.com/boxabirds">Julian Harris</a> for his project <a href="https://github.com/boxabirds/chatgpt-frontend-nobuild">chatgpt-frontend-nobuild</a>, that has been used as a starting point for the API Web Interface
-- <a href="https://hosted.weblate.org/widgets/thunderai/">Hosted Weblate</a> for managing the localization
+- [chatgpt.js](https://github.com/KudoAI/chatgpt.js) for ChatGPT web interaction
+- [Julian Harris](https://github.com/boxabirds) / [chatgpt-frontend-nobuild](https://github.com/boxabirds/chatgpt-frontend-nobuild) as the original API web interface starting point
+- [Hosted Weblate](https://hosted.weblate.org/widgets/thunderai/) for localization management

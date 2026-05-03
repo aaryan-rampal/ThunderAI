@@ -1954,7 +1954,7 @@
     "description": ""
   },
   "prefs_rag_embedding_api_key": {
-    "message": "Embedding API key (falls back to OpenAI key)",
+    "message": "OpenRouter embedding API key",
     "description": ""
   },
   "prefs_rag_title_model": {

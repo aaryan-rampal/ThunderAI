@@ -93,6 +93,7 @@ async function restoreOptions() {
         case 'password':
           let default_text_value = '';
           if(element.id == 'default_chatgpt_lang') default_text_value = prefs_default.default_chatgpt_lang;
+          if(element.id == 'rag_embedding_model') default_text_value = prefs_default.rag_embedding_model;
           element.value = result[element.id] || default_text_value;
           break;
         case 'select-one':
